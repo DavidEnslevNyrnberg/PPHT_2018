@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	private static final long STREAMING_TIME = 10000; // Stops streaming 10 seconds after connection
 
-	private static final String EMPATICA_API_KEY = ""; // TODO insert your API Key here
+	private static final String EMPATICA_API_KEY = "2baa364dceb843299b942b41a276740b"; // TODO insert your API Key here
 
 	private EmpaDeviceManager deviceManager = null;
 
