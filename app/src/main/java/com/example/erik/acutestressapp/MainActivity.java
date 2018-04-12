@@ -1,6 +1,7 @@
 package com.example.erik.acutestressapp;
 
 import android.Manifest;
+import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -36,44 +37,49 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 	private static final int REQUEST_ENABLE_BT = 1;
 	private static final int REQUEST_PERMISSION_ACCESS_COARSE_LOCATION = 1;
 
-	private static final long STREAMING_TIME = 10000; // Stops streaming 10 seconds after connection
+	private static final long STREAMING_TIME = 100000; // Stops streaming 10 seconds after
+	// connection
 
-	private static final String EMPATICA_API_KEY = "2baa364dceb843299b942b41a276740b"; // TODO insert your API Key here
+	private static final String EMPATICA_API_KEY = "2baa364dceb843299b942b41a276740b";
 
 	private EmpaDeviceManager deviceManager = null;
 
-	private TextView accel_xLabel;
-	private TextView accel_yLabel;
-	private TextView accel_zLabel;
+	//private TextView accel_xLabel;
+	//private TextView accel_yLabel;
+	//private TextView accel_zLabel;
 	private TextView bvpLabel;
 	private TextView edaLabel;
-	private TextView ibiLabel;
-	private TextView temperatureLabel;
+	//private TextView ibiLabel;
+	//private TextView temperatureLabel;
 	private TextView batteryLabel;
 	private TextView statusLabel;
 	private TextView deviceNameLabel;
 	private RelativeLayout dataCnt;
+
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 
+
+
 		// Initialize vars that reference UI components
 		statusLabel =  findViewById(R.id.status);
 		dataCnt =  findViewById(R.id.dataArea);
-		accel_xLabel =  findViewById(R.id.accel_x);
-		accel_yLabel =  findViewById(R.id.accel_y);
-		accel_zLabel =  findViewById(R.id.accel_z);
+		//accel_xLabel =  findViewById(R.id.accel_x);
+		//accel_yLabel =  findViewById(R.id.accel_y);
+		//accel_zLabel =  findViewById(R.id.accel_z);
 		bvpLabel =  findViewById(R.id.bvp);
 		edaLabel =  findViewById(R.id.eda);
-		ibiLabel =  findViewById(R.id.ibi);
-		temperatureLabel =  findViewById(R.id.temperature);
-		batteryLabel =  findViewById(R.id.battery);
+		//ibiLabel =  findViewById(R.id.ibi);
+		//temperatureLabel =  findViewById(R.id.temperature);
+		//batteryLabel =  findViewById(R.id.battery);
 		deviceNameLabel =  findViewById(R.id.deviceName);
 
 		initEmpaticaDeviceManager();
 	}
+
 
 	@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -233,9 +239,9 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	@Override
 	public void didReceiveAcceleration(int x, int y, int z, double timestamp) {
-		updateLabel(accel_xLabel, "" + x);
-		updateLabel(accel_yLabel, "" + y);
-		updateLabel(accel_zLabel, "" + z);
+		//updateLabel(accel_xLabel, "" + x);
+		//updateLabel(accel_yLabel, "" + y);
+		//updateLabel(accel_zLabel, "" + z);
 	}
 
 	@Override
@@ -255,12 +261,12 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	@Override
 	public void didReceiveIBI(float ibi, double timestamp) {
-		updateLabel(ibiLabel, "" + ibi);
+		//updateLabel(ibiLabel, "" + ibi);
 	}
 
 	@Override
 	public void didReceiveTemperature(float temp, double timestamp) {
-		updateLabel(temperatureLabel, "" + temp);
+		//updateLabel(temperatureLabel, "" + temp);
 	}
 
 	// Update a label with some text, making sure this is run in the UI thread
