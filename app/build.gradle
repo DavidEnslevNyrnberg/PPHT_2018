@@ -28,4 +28,6 @@ dependencies {
     compile 'com.jjoe64:graphview:4.2.1'
     compile 'com.squareup.okhttp:okhttp:2.5.0'
     compile 'com.empatica.empalink:empalink:2.1@aar'
+    compile 'com.opencsv:opencsv:4.1'
+
 }

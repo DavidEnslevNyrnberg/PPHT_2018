@@ -237,6 +237,7 @@
         android:layout_height="200dip"
         android:layout_alignParentStart="true"
         android:layout_below="@+id/dataArea"
+        android:layout_marginTop="20dp"
         android:background="@drawable/rounded_corner"
         android:clickable="false"
         android:visibility="visible" />
