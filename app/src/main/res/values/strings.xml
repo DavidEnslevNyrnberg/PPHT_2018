@@ -10,4 +10,8 @@
     <string name="emptyText">-</string>
     <string name="temp_label">Temperature</string>
     <string name="battery_label">Battery</string>
+    <string name="stress_status">Stress Status</string>
+    <string name="device_name">Device name</string>
+    <string name="button_start">Start</string>
+    <string name="button_settings">Settings</string>
 </resources>

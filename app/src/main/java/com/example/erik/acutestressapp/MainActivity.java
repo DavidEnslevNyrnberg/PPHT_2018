@@ -1,13 +1,13 @@
 package com.example.erik.acutestressapp;
 
 import android.Manifest;
-import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -30,6 +30,7 @@ import com.empatica.empalink.config.EmpaSensorType;
 import com.empatica.empalink.config.EmpaStatus;
 import com.empatica.empalink.delegate.EmpaDataDelegate;
 import com.empatica.empalink.delegate.EmpaStatusDelegate;
+import com.jjoe64.graphview.GraphView;
 
 
 public class MainActivity extends AppCompatActivity implements EmpaDataDelegate, EmpaStatusDelegate {
@@ -44,9 +45,9 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	private EmpaDeviceManager deviceManager = null;
 
-	//private TextView accel_xLabel;
-	//private TextView accel_yLabel;
-	//private TextView accel_zLabel;
+	private TextView accel_xLabel;
+	private TextView accel_yLabel;
+	private TextView accel_zLabel;
 	private TextView bvpLabel;
 	private TextView edaLabel;
 	//private TextView ibiLabel;
@@ -55,6 +56,7 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 	private TextView statusLabel;
 	private TextView deviceNameLabel;
 	private RelativeLayout dataCnt;
+	public GraphView graphView;
 
 
 	@Override
@@ -67,15 +69,23 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 		// Initialize vars that reference UI components
 		statusLabel =  findViewById(R.id.status);
 		dataCnt =  findViewById(R.id.dataArea);
-		//accel_xLabel =  findViewById(R.id.accel_x);
-		//accel_yLabel =  findViewById(R.id.accel_y);
-		//accel_zLabel =  findViewById(R.id.accel_z);
+		accel_xLabel =  findViewById(R.id.accel_x);
+		accel_yLabel =  findViewById(R.id.accel_y);
+		accel_zLabel =  findViewById(R.id.accel_z);
 		bvpLabel =  findViewById(R.id.bvp);
 		edaLabel =  findViewById(R.id.eda);
 		//ibiLabel =  findViewById(R.id.ibi);
 		//temperatureLabel =  findViewById(R.id.temperature);
-		//batteryLabel =  findViewById(R.id.battery);
+		batteryLabel =  findViewById(R.id.battery);
 		deviceNameLabel =  findViewById(R.id.deviceName);
+		graphView = findViewById(R.id.graph);
+
+		// Set backgroundcolor for the graph
+		graphView.setBackgroundColor(Color.argb(100, 50, 50, 50));
+		// activate horizontal zooming and scrolling
+		graphView.getViewport().setScalable(true);
+		// activate horizontal scrollingq
+		graphView.getViewport().setScrollable(true);
 
 		initEmpaticaDeviceManager();
 	}
@@ -239,9 +249,9 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	@Override
 	public void didReceiveAcceleration(int x, int y, int z, double timestamp) {
-		//updateLabel(accel_xLabel, "" + x);
-		//updateLabel(accel_yLabel, "" + y);
-		//updateLabel(accel_zLabel, "" + z);
+		updateLabel(accel_xLabel, "" + x);
+		updateLabel(accel_yLabel, "" + y);
+		updateLabel(accel_zLabel, "" + z);
 	}
 
 	@Override
