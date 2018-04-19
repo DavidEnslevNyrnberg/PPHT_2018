@@ -2,10 +2,16 @@
 % - use libsvm as SVM method
 % - SVM window 5 - 10 sec
 % - REMEBER TO CHANGE pasDIR to 'real' data path
+% direct translation between MAC and windows
 clear; clc; close all
 
-wDir = pwd;
-pasDir = dir(fullfile('..\Data\*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
+if strfind(computer,'PC')==1
+    pasDir = dir(fullfile('..\Data\*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
+    dDir = pasDir(1).folder;
+elseif strfind(computer,'MAC')==1
+    pasDir = dir(fullfile('/Data/*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
+    dDir = pwd;
+end
 
 %% import all data to struct -> TestSubject
 for j = 1:length(pasDir)
@@ -15,13 +21,13 @@ for j = 1:length(pasDir)
         % indexing for TestSubject
         k = j-2;
         % initialize dirs for each file.
-        BVPdir = fullfile([pasDir(j).folder,'\',pasDir(j).name,'\BVP.csv']);
+        BVPdir = fullfile(dDir,pasDir(j).name,'BVP.csv');
         BVPraw = load(BVPdir);
-        ACCdir = fullfile([pasDir(j).folder,'\',pasDir(j).name,'\ACC.csv']);
+        ACCdir = fullfile(dDir,pasDir(j).name,'ACC.csv');
         ACCraw = load(ACCdir);
-        EDAdir = fullfile([pasDir(j).folder,'\',pasDir(j).name,'\EDA.csv']);
+        EDAdir = fullfile(dDir,pasDir(j).name,'EDA.csv');
         EDAraw = load(EDAdir);
-        TAGSdir = fullfile([pasDir(j).folder,'\',pasDir(j).name,'\tags.csv']);
+        TAGSdir = fullfile(dDir,pasDir(j).name,'tags.csv');
         TAGSraw = load(TAGSdir);
         
         % Load meta data; test ID, initial Time, time instances for tags, normalized
@@ -50,17 +56,35 @@ end
 ite = 1; % remove later
 
 dataBVP = TestSubject{ite}.BVP.data;
-fsBVP = 2*TestSubject{ite}.BVP.fs;
+fsBVP = TestSubject{ite}.BVP.fs;
+load('FIRfilt.mat')
 
-detrendDataBVP = detrend(dataBVP);
-[~,locPeakBVP] = findpeak(-detrendDataBVP);
+d = designfilt('bandpass', 'PassbandFrequency',0.15,'StopbandFrequency',0.2, ...
+    'PassbandRipple',1,'StopbandAttenuation',60, ...
+    'DesignMethod','equiripple');
 
+% butter_order = 4;
+% butter_cut = [.5,15];
+% contruct bandpass butterworth filter
+filtfilt(filterCoe,dataBVP)
+[b,a] = butter(butter_order,butter_cut/(2*fsBVP),'bandpass');
 
+% filtfilt(filterCoe
+
+[~,locPeakBVP] = findpeaks(-dataBVP);
+
+% for i = 1:N
+%     % array structure of data
+%     ecg{i} = ecg_data(i,~isnan(ecg_data(i,:)));
+%     % apply filter to data
+%     ecg_prepros_filt{i} = filtfilt(b,a,ecg{i});
+%     timeAx = 1:length(ecg_prepros_filt{i}); % data time axis
+% end
 
 close all
 figure;
-subplot(2,1,1); plot(X); title('Pure signal')
-subplot(2,1,2); plot(detrendDataBVP); title('Detrend signal')
+subplot(2,1,1); plot(dataBVP); title('Pure signal')
+% subplot(2,1,2); plot(detrendDataBVP); title('Detrend signal')
 
 %% failure
 
