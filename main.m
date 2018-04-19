@@ -43,8 +43,40 @@ end
 
 %% calculate windows for signals
 
+
 %% EDA - peak count and slope
 
 %% BVP - HR calc and HRV feature extraction
+ite = 1; % remove later
+
+dataBVP = TestSubject{ite}.BVP.data;
+fsBVP = 2*TestSubject{ite}.BVP.fs;
+
+detrendDataBVP = detrend(dataBVP);
+[~,locPeakBVP] = findpeak(-detrendDataBVP);
+
+
+
+close all
+figure;
+subplot(2,1,1); plot(X); title('Pure signal')
+subplot(2,1,2); plot(detrendDataBVP); title('Detrend signal')
+
+%% failure
+
+k = 1:fsBVP;
+
+N = length(X);
+M = nan(fsBVP,N);
+for k = 1:fsBVP
+%     W_k = 2*k;
+    for i = k+2:N-k+1
+        if detrendDataBVP(i-1)>detrendDataBVP(i-k-1) && detrendDataBVP(i-1)>detrendDataBVP(i+k-1)
+            M(k,i) = 1;
+        else
+            M(k,i) = 0;
+        end
+    end
+end
 
 %% SVM - 2-way classifier
