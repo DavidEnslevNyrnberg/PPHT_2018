@@ -2,7 +2,6 @@
 % - use libsvm as SVM method
 % - SVM window 5 - 10 sec
 % - REMEBER TO CHANGE pasDIR to 'real' data path
-% direct translation between MAC and windows
 clear; clc; close all
 
 if strfind(computer,'PC')==1
@@ -33,7 +32,7 @@ for j = 1:length(pasDir)
         % Load meta data; test ID, initial Time, time instances for tags, normalized
         % value of the time instances for tags.
         TestSubject{k}.ID = pasDir(j).name;
-        TestSubject{k}.meta.iniTime = BVPraw(1);
+        TestSubject{k}.meta.iniTime = num2str(BVPraw(1));
         TestSubject{k}.meta.tags = TAGSraw;
         TestSubject{k}.meta.tagsNorm = TAGSraw-BVPraw(1);
         
@@ -51,56 +50,62 @@ end
 
 
 %% EDA - peak count and slope
+ite = 1; % remove later
+
+dataEDA = TestSubject{ite}.EDA.data;
+fsEDA = 2*TestSubject{ite}.EDA.fs; %Samplingsrate of EDA (Hz)
+
+ %% preprocessing
+ %lowpass butterworth filter of order 6 on the EDA signal, 
+ %[0.05 1.5](range energy of SCR) , cutoff frequency would be 1.5
+ Wn = 1.5/(fsEDA/2);     %Cutoff frequency normalized
+ [b,a] = butter(6, Wn,'low');    % 6th- order butterworth  band-pass filter
+ 
+filter_EDA = filtfilt(b,a,dataEDA); 
+
+figure;
+subplot(2,1,1); plot(dataEDA); title('Pure signal')
+subplot(2,1,2); plot(filter_EDA); title('Filtered')
+
+%% Detection of peaks
+detrendDataFilterEDA = detrend(filter_EDA);
+[~,locPeakEDA] = findpeaks(-detrendDataFilterEDA); %locPeakEDA gives all peaks in the signal
+length(locPeakEDA) 
+
+close all
+figure;
+ plot(detrendDataFilterEDA); title('Detrend signal')
 
 %% BVP - HR calc and HRV feature extraction
 ite = 1; % remove later
 
 dataBVP = TestSubject{ite}.BVP.data;
 fsBVP = TestSubject{ite}.BVP.fs;
-load('FIRfilt.mat')
+% filterdesigner > bandpass, FIR(equiripple), minimum order, Density
+% Factor(20), (hz, 64, 0, 0.5, 15, 15,5), (dB, 60, 1, 80)
+% load('FIRfilt.mat')
 
-d = designfilt('bandpass', 'PassbandFrequency',0.15,'StopbandFrequency',0.2, ...
-    'PassbandRipple',1,'StopbandAttenuation',60, ...
-    'DesignMethod','equiripple');
-
-% butter_order = 4;
-% butter_cut = [.5,15];
-% contruct bandpass butterworth filter
-filtfilt(filterCoe,dataBVP)
-[b,a] = butter(butter_order,butter_cut/(2*fsBVP),'bandpass');
-
-% filtfilt(filterCoe
-
-[~,locPeakBVP] = findpeaks(-dataBVP);
-
-% for i = 1:N
-%     % array structure of data
-%     ecg{i} = ecg_data(i,~isnan(ecg_data(i,:)));
-%     % apply filter to data
-%     ecg_prepros_filt{i} = filtfilt(b,a,ecg{i});
-%     timeAx = 1:length(ecg_prepros_filt{i}); % data time axis
-% end
+bpFirFilt = designfilt('bandpassfir', ... % Matteo 0 doesnt work?
+       'StopbandFrequency1',eps, 'PassbandFrequency1',.5, ...
+       'PassbandFrequency2',15, 'StopbandFrequency2',15.5, ...
+       'StopbandAttenuation1',60, 'PassbandRipple',1, 'StopbandAttenuation2',80, ...
+       'DesignMethod','Equiripple', 'SampleRate',fsBVP);
+% fvtool(bpFirFilt) %conform the designed filter
+filtDataBVP = filtfilt(bpFirFilt,dataBVP);
+timeBVP = 1:length(filtDataBVP);
+[valPeakBVP,locPeakBVP] = findpeaks(-filtDataBVP,'MinPeakHeight',10);
 
 close all
-figure;
-subplot(2,1,1); plot(dataBVP); title('Pure signal')
-% subplot(2,1,2); plot(detrendDataBVP); title('Detrend signal')
+figure
+plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVP),-valPeakBVP,'or')
 
-%% failure
+diffStats = quantile(diff(locPeakBVP),[0.25 0.50 0.75]);
 
-k = 1:fsBVP;
 
-N = length(X);
-M = nan(fsBVP,N);
-for k = 1:fsBVP
-%     W_k = 2*k;
-    for i = k+2:N-k+1
-        if detrendDataBVP(i-1)>detrendDataBVP(i-k-1) && detrendDataBVP(i-1)>detrendDataBVP(i+k-1)
-            M(k,i) = 1;
-        else
-            M(k,i) = 0;
-        end
-    end
-end
+
+% startT = TestSubject{1}.meta.iniTime;
+% endT = (length(dataBVP)-1)*fsBVP+startT;
+% time = [startT:fsBVP:endT];
+
 
 %% SVM - 2-way classifier
