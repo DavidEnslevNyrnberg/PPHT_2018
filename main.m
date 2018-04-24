@@ -69,15 +69,23 @@ subplot(2,1,2); plot(filter_EDA); title('Filtered')
 
 %% Detection of peaks
 detrendDataFilterEDA = detrend(filter_EDA);
-[~,locPeakEDA] = findpeaks(-detrendDataFilterEDA); %locPeakEDA gives all peaks in the signal
+[valPeakEDA,locPeakEDA] = findpeaks(-detrendDataFilterEDA); %locPeakEDA gives all peaks in the signal
+
 length(locPeakEDA) 
+timeEDA = 1:length(detrendDataFilterEDA);
 
 close all
-figure;
- plot(detrendDataFilterEDA); title('Detrend signal')
+figure
+% subplot(2,1,1)
+plot(timeEDA,detrendDataFilterEDA,'g', timeEDA(locPeakEDA),-valPeakEDA,'or')
+% subplot(2,1,2)
+% plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVP),valPeakBVP,'or')
+
+% figure;
+% plot(detrendDataFilterEDA); title('Detrend signal')
 
 %% BVP - HR calc and HRV feature extraction
-ite = 1; % remove later
+ite = 2; % remove later
 
 dataBVP = TestSubject{ite}.BVP.data;
 fsBVP = TestSubject{ite}.BVP.fs;
@@ -93,19 +101,38 @@ bpFirFilt = designfilt('bandpassfir', ... % Matteo 0 doesnt work?
 % fvtool(bpFirFilt) %conform the designed filter
 filtDataBVP = filtfilt(bpFirFilt,dataBVP);
 timeBVP = 1:length(filtDataBVP);
-[valPeakBVP,locPeakBVP] = findpeaks(-filtDataBVP,'MinPeakHeight',10);
 
-close all
+[valPeakBVP,locPeakBVP] = PPG2PEAK(filtDataBVP, 20, 0.75);
+% [valPeakBVP,locPeakBVP] = findpeaks(-filtDataBVP,'MinPeakHeight',10);
+% 
+% close all
+% figure
+% plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVP),-valPeakBVP,'or')
+% 
+% diffStats = quantile(diff(locPeakBVP),[0.25 0.50 0.75]);
+% 
+% figure; plot(diff(locPeakBVP),'o')
+% 
+% failedPeak = diff(locPeakBVP) < floor(diffStats(1)*0.75);
+% locSuccesPeak = find(failedPeak ==0);
+% locPeakBVP2 = locPeakBVP(locSuccesPeak);
+% valPeakBVP2 = -valPeakBVP(locSuccesPeak);
+close all;
+[valPeakBVPtest,locPeakBVPtest] = findpeaks(-filtDataBVP,'MinPeakHeight',10);
+
+% plot peak result
 figure
-plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVP),-valPeakBVP,'or')
-
-diffStats = quantile(diff(locPeakBVP),[0.25 0.50 0.75]);
-
-
-
+subplot(2,1,1)
+plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVPtest),-valPeakBVPtest,'or')
+subplot(2,1,2)
+plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVP),valPeakBVP,'or')
 % startT = TestSubject{1}.meta.iniTime;
 % endT = (length(dataBVP)-1)*fsBVP+startT;
 % time = [startT:fsBVP:endT];
 
+peakDataBVP = full(sparse(1,locPeakBVP,1,1,length(filtDataBVP)));
+
+f_resample = 8;
+[HRV qrs_loc_time HRV_resample qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
 
 %% SVM - 2-way classifier
