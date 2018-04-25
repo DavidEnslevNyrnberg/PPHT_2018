@@ -8,27 +8,17 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
 import android.net.Uri;
 
 import android.os.Bundle;
 
-import android.os.Handler;
-import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.Fragment;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
-import android.text.TextUtils;
 
-import android.view.LayoutInflater;
+import android.support.v7.app.AppCompatActivity;
+
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 
 
@@ -43,20 +33,24 @@ import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.jjoe64.graphview.Viewport;
+import com.opencsv.CSVReader;
 import com.opencsv.bean.CsvToBeanBuilder;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 
-public class MainActivity extends AppCompatActivity implements EmpaDataDelegate, EmpaStatusDelegate {
+public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegate, EmpaStatusDelegate*/ {
 
-	private static final int REQUEST_ENABLE_BT = 1;
+	// For E4 set up
+	/*private static final int REQUEST_ENABLE_BT = 1;
 	private static final int REQUEST_PERMISSION_ACCESS_COARSE_LOCATION = 1;
 
 	private static final long STREAMING_TIME = 100000; // Stops streaming 100 000 seconds after
@@ -64,30 +58,28 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	private static final String EMPATICA_API_KEY = "2baa364dceb843299b942b41a276740b";
 
-	private EmpaDeviceManager deviceManager = null;
+	private EmpaDeviceManager deviceManager = null;*/
 
 
 
 
-	private TextView accel_xLabel;
-	private TextView accel_yLabel;
-	private TextView accel_zLabel;
-	private TextView bvpLabel;
-	private TextView edaLabel;
+	//private TextView accel_xLabel;
+	//private TextView accel_yLabel;
+	//private TextView accel_zLabel;
+	//private TextView bvpLabel;
+	//private TextView edaLabel;
 	//private TextView ibiLabel;
 	//private TextView temperatureLabel;
-	private TextView batteryLabel;
+	//private TextView batteryLabel;
 	private TextView statusLabel;
-	private TextView deviceNameLabel;
-	private RelativeLayout dataCnt;
+	//private TextView deviceNameLabel;
+	//private RelativeLayout dataCnt;
 
 
-	private static final Random RANDOM = new Random();
+	int lastX = 0;
+	private float[] edaData;
+
 	private LineGraphSeries<DataPoint> series_EDA;
-	private LineGraphSeries<DataPoint> series_BVP;
-
-	private int lastX = 0;
-
 
 
 
@@ -99,42 +91,37 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 		// Initialize vars that reference UI components
 		statusLabel =  findViewById(R.id.status);
-		dataCnt =  findViewById(R.id.dataArea);
-		accel_xLabel =  findViewById(R.id.accel_x);
-		accel_yLabel =  findViewById(R.id.accel_y);
-		accel_zLabel =  findViewById(R.id.accel_z);
-		bvpLabel =  findViewById(R.id.bvp);
-		edaLabel =  findViewById(R.id.eda);
+		//dataCnt =  findViewById(R.id.dataArea);
+		//accel_xLabel =  findViewById(R.id.accel_x);
+		//accel_yLabel =  findViewById(R.id.accel_y);
+		//accel_zLabel =  findViewById(R.id.accel_z);
+		//bvpLabel =  findViewById(R.id.bvp);
+		//edaLabel =  findViewById(R.id.eda);
 		//ibiLabel =  findViewById(R.id.ibi);
 		//temperatureLabel =  findViewById(R.id.temperature);
-		batteryLabel =  findViewById(R.id.battery);
-		deviceNameLabel =  findViewById(R.id.deviceName);
+		//batteryLabel =  findViewById(R.id.battery);
+		//deviceNameLabel =  findViewById(R.id.deviceName);
 		GraphView graph = (GraphView) findViewById(R.id.graph);
 
-		initEmpaticaDeviceManager();
+
+		// Initializing the E4
+		//initEmpaticaDeviceManager();
+
 
 
 
 
 		// data
-		series_EDA = new LineGraphSeries<DataPoint>();
+		series_EDA = new LineGraphSeries<>();
 		graph.addSeries(series_EDA);
 		// styling series
 		series_EDA.setColor(Color.argb(255,0,255,255));
 		series_EDA.setDrawDataPoints(true);
 		series_EDA.setThickness(3);
 
-		series_BVP = new LineGraphSeries<DataPoint>();
-		graph.addSeries(series_BVP);
-		// styling series
-		series_BVP.setColor(Color.argb(255,0,255,255));
-		series_BVP.setDrawDataPoints(true);
-		series_BVP.setThickness(3);
-		graph.getViewport().setScrollable(true); // enables horizontal scrolling
-		graph.getViewport().setScrollableY(true); // enables vertical scrolling
-		graph.getViewport().setScalable(true); // enables horizontal zooming and scrolling
-		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
+		edaData = getEDA();
 	}
+
 
 
 	@Override
@@ -151,10 +138,10 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 						@Override
 						public void run() {
-							//addEntry_BVP(Data in here); //TODO get the BVP data in here
-							//addEntry_EDA(Data in here); // TODO get the EDA data in here
+							addEntry();
 						}
 					});
+
 
 					// sleep to slow down the add of entries
 					try {
@@ -165,22 +152,87 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 				}
 			}
 		}).start();
+
 	}
 
 	// add random data to graph
-	private void addEntry_EDA(float y_value) {
-		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_EDA.appendData(new DataPoint(lastX++, y_value), true, 100);
+	private void addEntry() {
 
-	}
-	private void addEntry_BVP(float y_value) {
-		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_EDA.appendData(new DataPoint(lastX++, y_value), true, 100);
-
+		// here, we choose to display max 10 points on the viewport and we scroll to end
+		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX++]), true, 100);
 	}
 
+	private float[] getEDA(){
 
-	@Override
+		float[] res = new float[10000];
+		int i = 0;
+
+		try {
+
+
+			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("eda.csv")));
+			String[] next;
+			while ((next = reader.readNext()) != null){
+				res[i] = Float.parseFloat(next[0]);
+				i = i + 1;
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return res;
+
+
+
+	}
+
+
+	// Update text in Stress status
+	public void updateTextView(String toThis) {
+		TextView textView = statusLabel;
+		textView.setText(toThis);
+	}
+
+	public void alarmHistory(View v){
+		Intent i = new Intent(getApplicationContext(),alarmHistory.class);
+		//StartActivity with the intent i
+		startActivity(i);
+	}
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	/*@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		switch (requestCode) {
 			case REQUEST_PERMISSION_ACCESS_COARSE_LOCATION:
@@ -281,9 +333,9 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 				Toast.makeText(MainActivity.this, "Sorry, you can't connect to this device", Toast.LENGTH_SHORT).show();
 			}
 		}
-	}
+	}*/
 
-	@Override
+	/*@Override
 	public void didRequestEnableBluetooth() {
 		// Request the user to enable Bluetooth
 		Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -312,7 +364,7 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 		// The device manager is ready for use
 		if (status == EmpaStatus.READY) {
-			updateLabel(statusLabel, status.name() + " - Turn on your device");
+			updateLabel(statusLabel, status.name() + "");
 			// Start scanning
 			deviceManager.startScanning();
 			// The device manager has established a connection
@@ -339,20 +391,20 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	@Override
 	public void didReceiveAcceleration(int x, int y, int z, double timestamp) {
-		updateLabel(accel_xLabel, "" + x);
-		updateLabel(accel_yLabel, "" + y);
-		updateLabel(accel_zLabel, "" + z);
+		//updateLabel(accel_xLabel, "" + x);
+		//updateLabel(accel_yLabel, "" + y);
+		//updateLabel(accel_zLabel, "" + z);
 	}
 
 	@Override
 	public void didReceiveBVP(float bvp, double timestamp) {
-		updateLabel(bvpLabel, "" + bvp);
+		//updateLabel(bvpLabel, "" + bvp);
 
 	}
 
 	@Override
 	public void didReceiveBatteryLevel(float battery, double timestamp) {
-		updateLabel(batteryLabel, String.format("%.0f %%", battery * 100));
+		//updateLabel(batteryLabel, String.format("%.0f %%", battery * 100));
 	}
 
 	@Override
@@ -372,7 +424,7 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	// Update a label with some text, making sure this is run in the UI thread
 	private void updateLabel(final TextView label, final String text) {
-		runOnUiThread(new Runnable() {
+		//runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
 				label.setText(text);
@@ -381,6 +433,5 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 	}
 
 
-
-}
+}*/
 
