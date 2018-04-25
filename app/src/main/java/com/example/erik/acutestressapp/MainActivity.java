@@ -78,8 +78,10 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 	int lastX = 0;
 	private float[] edaData;
+	private float[] bvpData;
 
 	private LineGraphSeries<DataPoint> series_EDA;
+	private LineGraphSeries<DataPoint> series_BVP;
 
 
 
@@ -122,7 +124,15 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		series_EDA.setDrawDataPoints(true);
 		series_EDA.setThickness(3);
 
+		series_BVP = new LineGraphSeries<>();
+		graph.addSeries(series_BVP);
+		// styling series
+		series_BVP.setColor(Color.argb(255,255,50,0));
+		series_BVP.setDrawDataPoints(true);
+		series_BVP.setThickness(3);
+
 		edaData = getEDA();
+		bvpData = getBVP();
 
 	}
 
@@ -164,6 +174,8 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 		// here, we choose to display max 10 points on the viewport and we scroll to end
 		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX++]), true, 100);
+		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX++]), true, 1000);
+
 	}
 
 	private float[] getEDA(){
@@ -185,6 +197,27 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			e.printStackTrace();
 		}
 		return res;
+	}
+
+	private float[] getBVP(){
+
+		float[] res2 = new float[70000];
+		int j = 0;
+
+		try {
+
+
+			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("bvp.csv")));
+			String[] next;
+			while ((next = reader.readNext()) != null){
+				res2[j] = Float.parseFloat(next[0]);
+				j = j + 1;
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return res2;
 	}
 
 
