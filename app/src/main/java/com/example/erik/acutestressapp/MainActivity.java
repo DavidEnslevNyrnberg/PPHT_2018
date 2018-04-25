@@ -107,7 +107,10 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		// Initializing the E4
 		//initEmpaticaDeviceManager();
 
-
+		graph.getViewport().setScrollable(true); // enables horizontal scrolling
+		graph.getViewport().setScrollableY(true); // enables vertical scrolling
+		graph.getViewport().setScalable(true); // enables horizontal zooming and scrolling
+		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
 
 
 
@@ -120,6 +123,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		series_EDA.setThickness(3);
 
 		edaData = getEDA();
+
 	}
 
 
@@ -181,9 +185,6 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			e.printStackTrace();
 		}
 		return res;
-
-
-
 	}
 
 
