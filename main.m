@@ -133,6 +133,6 @@ plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVP),valPeakBVP,'or')
 peakDataBVP = full(sparse(1,locPeakBVP,1,1,length(filtDataBVP)));
 
 f_resample = 8;
-[HRV qrs_loc_time HRV_resample qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
+[HRV, qrs_loc_time, HRV_resample, qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
 
 %% SVM - 2-way classifier

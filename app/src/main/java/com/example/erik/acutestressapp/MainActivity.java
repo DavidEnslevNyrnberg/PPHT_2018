@@ -37,6 +37,11 @@ import com.jjoe64.graphview.Viewport;
 import com.opencsv.CSVReader;
 import com.opencsv.bean.CsvToBeanBuilder;
 
+import org.apache.commons.math3.complex.Complex;
+import org.apache.commons.math3.transform.DftNormalization;
+import org.apache.commons.math3.transform.FastFourierTransformer;
+import org.apache.commons.math3.transform.TransformType;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -78,8 +83,10 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 
 	int lastX = 5;
-	private float[] edaData;
-	private float[] bvpData;
+	double eda_fs;
+	double bvp_fs;
+	private double[] edaData;
+	private double[] bvpData;
 	java.util.Date time;
 
 	private LineGraphSeries<DataPoint> series_EDA;
@@ -180,15 +187,15 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	// add random data to graph
 	private void addEntry() {
 
-		// here, we choose to display max 10 points on the viewport and we scroll to end
+		// here, we choose to display max 100 points on the viewport and we scroll to end
 		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX++]), true, 100);
-		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX++]), true, 1000);
+		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX++]), true, 100);
 
 	}
 
-	private float[] getEDA(){
+	private double[] getEDA(){
 
-		float[] res = new float[10000];
+		double[] res = new double[10000];
 
 		int i = 0;
 
@@ -198,20 +205,21 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("eda.csv")));
 			String[] next;
 			while ((next = reader.readNext()) != null){
-				res[i] = Float.parseFloat(next[0]);
+				res[i] = Double.parseDouble(next[0]);
 				i = i + 1;
 			}
+			eda_fs = res[1];
 
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
+		res = fourierLowPassFilter(res, 150, bvp_fs);
 		return res;
 	}
 
-	private float[] getBVP(){
+	private double[] getBVP(){
 
-		float[] res2 = new float[70000];
+		double[] res2 = new double[70000];
 		int j = 0;
 
 		try {
@@ -220,13 +228,15 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("bvp.csv")));
 			String[] next;
 			while ((next = reader.readNext()) != null){
-				res2[j] = Float.parseFloat(next[0]);
+				res2[j] = Double.parseDouble(next[0]);
 				j = j + 1;
 			}
+			bvp_fs = res2[1];
 
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		res2 = fourierLowPassFilter(res2, 150, bvp_fs);
 		return res2;
 	}
 
@@ -262,6 +272,70 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		//StartActivity with the intent i
 		startActivity(i);
 	}
+
+
+
+	public double[] fourierLowPassFilter(double[] data, double lowPass, double frequency){
+		//data: input data, must be spaced equally in time.
+		//lowPass: The cutoff frequency at which
+		//frequency: The frequency of the input data.
+
+		//The apache Fft (Fast Fourier Transform) accepts arrays that are powers of 2.
+		int minPowerOf2 = 1;
+		while(minPowerOf2 < data.length)
+			minPowerOf2 = 2 * minPowerOf2;
+
+		//pad with zeros
+		double[] padded = new double[minPowerOf2];
+		for(int i = 0; i < data.length; i++)
+			padded[i] = data[i];
+
+
+		FastFourierTransformer transformer = new FastFourierTransformer(DftNormalization.STANDARD);
+		Complex[] fourierTransform = transformer.transform(padded, TransformType.FORWARD);
+
+		//build the frequency domain array
+		double[] frequencyDomain = new double[fourierTransform.length];
+		for(int i = 0; i < frequencyDomain.length; i++)
+			frequencyDomain[i] = frequency * i / (double)fourierTransform.length;
+
+		//build the classifier array, 2s are kept and 0s do not pass the filter
+		double[] keepPoints = new double[frequencyDomain.length];
+		keepPoints[0] = 1;
+		for(int i = 1; i < frequencyDomain.length; i++){
+			if(frequencyDomain[i] < lowPass)
+				keepPoints[i] = 2;
+			else
+				keepPoints[i] = 0;
+		}
+
+		//filter the fft
+		for(int i = 0; i < fourierTransform.length; i++)
+			fourierTransform[i] = fourierTransform[i].multiply((double)keepPoints[i]);
+
+		//invert back to time domain
+		Complex[] reverseFourier = transformer.transform(fourierTransform, TransformType.INVERSE);
+
+		//get the real part of the reverse
+		double[] result = new double[data.length];
+		for(int i = 0; i< result.length; i++){
+			result[i] = reverseFourier[i].getReal();
+		}
+
+		return result;
+	}
+
+
+
+	public List<String[]> ppg2peak(){ // TODO: port ppg2peak from matlab
+	}
+
+	public List<String[]> getHRV(){ // TODO: port get_hrv from matlab
+
+	}
+
+
+
 
 }
 
