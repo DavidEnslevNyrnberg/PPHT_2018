@@ -7,7 +7,7 @@ import android.bluetooth.BluetoothDevice;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-
+import umich.cse.yctung.androidlibsvm.LibSVM;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
 import android.net.Uri;
@@ -30,6 +30,7 @@ import com.empatica.empalink.config.EmpaStatus;
 import com.empatica.empalink.delegate.EmpaDataDelegate;
 import com.empatica.empalink.delegate.EmpaStatusDelegate;
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.helper.DateAsXAxisLabelFormatter;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.jjoe64.graphview.Viewport;
@@ -76,9 +77,10 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	//private RelativeLayout dataCnt;
 
 
-	int lastX = 0;
+	int lastX = 5;
 	private float[] edaData;
 	private float[] bvpData;
+	java.util.Date time;
 
 	private LineGraphSeries<DataPoint> series_EDA;
 	private LineGraphSeries<DataPoint> series_BVP;
@@ -123,6 +125,12 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		series_EDA.setColor(Color.argb(255,0,255,255));
 		series_EDA.setDrawDataPoints(true);
 		series_EDA.setThickness(3);
+		/*graph.getGridLabelRenderer().setLabelFormatter(new DateAsXAxisLabelFormatter(getActivity()));
+		graph.getGridLabelRenderer().setNumHorizontalLabels(3); // only 4 because of the space
+		graph.getViewport().setMinX(getTime());*/
+		// as we use dates as labels, the human rounding to nice readable numbers
+		// is not necessary
+		graph.getGridLabelRenderer().setHumanRounding(false);
 
 		series_BVP = new LineGraphSeries<>();
 		graph.addSeries(series_BVP);
@@ -181,6 +189,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	private float[] getEDA(){
 
 		float[] res = new float[10000];
+
 		int i = 0;
 
 		try {
@@ -196,6 +205,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
 		return res;
 	}
 
@@ -218,6 +228,26 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			e.printStackTrace();
 		}
 		return res2;
+	}
+
+	private java.util.Date getTime(){
+
+		float[] time_x = new float[70000];
+
+
+		try {
+
+
+			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("bvp.csv")));
+			String[] next;
+			next = reader.readNext();
+			time_x[0] = Float.parseFloat(next[0]);
+			time = new java.util.Date((long)time_x[0]*1000);
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return time;
 	}
 
 
