@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/PPHT_2018.iml" filepath="$PROJECT_DIR$/PPHT_2018.iml" />
+      <module fileurl="file://$PROJECT_DIR$/androidlibsvm-release/androidlibsvm-release.iml" filepath="$PROJECT_DIR$/androidlibsvm-release/androidlibsvm-release.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>

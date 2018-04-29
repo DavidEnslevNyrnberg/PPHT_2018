@@ -7,28 +7,18 @@ import android.bluetooth.BluetoothDevice;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-
+import umich.cse.yctung.androidlibsvm.LibSVM;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
 import android.net.Uri;
 
 import android.os.Bundle;
 
-import android.os.Handler;
-import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.Fragment;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
-import android.text.TextUtils;
 
-import android.view.LayoutInflater;
+import android.support.v7.app.AppCompatActivity;
+
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 
 
@@ -40,23 +30,33 @@ import com.empatica.empalink.config.EmpaStatus;
 import com.empatica.empalink.delegate.EmpaDataDelegate;
 import com.empatica.empalink.delegate.EmpaStatusDelegate;
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.helper.DateAsXAxisLabelFormatter;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.jjoe64.graphview.Viewport;
+import com.opencsv.CSVReader;
 import com.opencsv.bean.CsvToBeanBuilder;
 
+import org.apache.commons.math3.complex.Complex;
+import org.apache.commons.math3.transform.DftNormalization;
+import org.apache.commons.math3.transform.FastFourierTransformer;
+import org.apache.commons.math3.transform.TransformType;
+
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 
-public class MainActivity extends AppCompatActivity implements EmpaDataDelegate, EmpaStatusDelegate {
+public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegate, EmpaStatusDelegate*/ {
 
-	private static final int REQUEST_ENABLE_BT = 1;
+	// For E4 set up
+	/*private static final int REQUEST_ENABLE_BT = 1;
 	private static final int REQUEST_PERMISSION_ACCESS_COARSE_LOCATION = 1;
 
 	private static final long STREAMING_TIME = 100000; // Stops streaming 100 000 seconds after
@@ -64,30 +64,33 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	private static final String EMPATICA_API_KEY = "2baa364dceb843299b942b41a276740b";
 
-	private EmpaDeviceManager deviceManager = null;
+	private EmpaDeviceManager deviceManager = null;*/
 
 
 
 
-	private TextView accel_xLabel;
-	private TextView accel_yLabel;
-	private TextView accel_zLabel;
-	private TextView bvpLabel;
-	private TextView edaLabel;
+	//private TextView accel_xLabel;
+	//private TextView accel_yLabel;
+	//private TextView accel_zLabel;
+	//private TextView bvpLabel;
+	//private TextView edaLabel;
 	//private TextView ibiLabel;
 	//private TextView temperatureLabel;
-	private TextView batteryLabel;
+	//private TextView batteryLabel;
 	private TextView statusLabel;
-	private TextView deviceNameLabel;
-	private RelativeLayout dataCnt;
+	//private TextView deviceNameLabel;
+	//private RelativeLayout dataCnt;
 
 
-	private static final Random RANDOM = new Random();
+	int lastX = 5;
+	double eda_fs;
+	double bvp_fs;
+	private double[] edaData;
+	private double[] bvpData;
+	java.util.Date time;
+
 	private LineGraphSeries<DataPoint> series_EDA;
 	private LineGraphSeries<DataPoint> series_BVP;
-
-	private int lastX = 0;
-
 
 
 
@@ -99,42 +102,55 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 		// Initialize vars that reference UI components
 		statusLabel =  findViewById(R.id.status);
-		dataCnt =  findViewById(R.id.dataArea);
-		accel_xLabel =  findViewById(R.id.accel_x);
-		accel_yLabel =  findViewById(R.id.accel_y);
-		accel_zLabel =  findViewById(R.id.accel_z);
-		bvpLabel =  findViewById(R.id.bvp);
-		edaLabel =  findViewById(R.id.eda);
+		//dataCnt =  findViewById(R.id.dataArea);
+		//accel_xLabel =  findViewById(R.id.accel_x);
+		//accel_yLabel =  findViewById(R.id.accel_y);
+		//accel_zLabel =  findViewById(R.id.accel_z);
+		//bvpLabel =  findViewById(R.id.bvp);
+		//edaLabel =  findViewById(R.id.eda);
 		//ibiLabel =  findViewById(R.id.ibi);
 		//temperatureLabel =  findViewById(R.id.temperature);
-		batteryLabel =  findViewById(R.id.battery);
-		deviceNameLabel =  findViewById(R.id.deviceName);
+		//batteryLabel =  findViewById(R.id.battery);
+		//deviceNameLabel =  findViewById(R.id.deviceName);
 		GraphView graph = (GraphView) findViewById(R.id.graph);
 
-		initEmpaticaDeviceManager();
 
+		// Initializing the E4
+		//initEmpaticaDeviceManager();
+
+		graph.getViewport().setScrollable(true); // enables horizontal scrolling
+		graph.getViewport().setScrollableY(true); // enables vertical scrolling
+		graph.getViewport().setScalable(true); // enables horizontal zooming and scrolling
+		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
 
 
 
 		// data
-		series_EDA = new LineGraphSeries<DataPoint>();
+		series_EDA = new LineGraphSeries<>();
 		graph.addSeries(series_EDA);
 		// styling series
 		series_EDA.setColor(Color.argb(255,0,255,255));
 		series_EDA.setDrawDataPoints(true);
 		series_EDA.setThickness(3);
+		/*graph.getGridLabelRenderer().setLabelFormatter(new DateAsXAxisLabelFormatter(getActivity()));
+		graph.getGridLabelRenderer().setNumHorizontalLabels(3); // only 4 because of the space
+		graph.getViewport().setMinX(getTime());*/
+		// as we use dates as labels, the human rounding to nice readable numbers
+		// is not necessary
+		graph.getGridLabelRenderer().setHumanRounding(false);
 
-		series_BVP = new LineGraphSeries<DataPoint>();
+		series_BVP = new LineGraphSeries<>();
 		graph.addSeries(series_BVP);
 		// styling series
-		series_BVP.setColor(Color.argb(255,0,255,255));
+		series_BVP.setColor(Color.argb(255,255,50,0));
 		series_BVP.setDrawDataPoints(true);
 		series_BVP.setThickness(3);
-		graph.getViewport().setScrollable(true); // enables horizontal scrolling
-		graph.getViewport().setScrollableY(true); // enables vertical scrolling
-		graph.getViewport().setScalable(true); // enables horizontal zooming and scrolling
-		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
+
+		edaData = getEDA();
+		bvpData = getBVP();
+
 	}
+
 
 
 	@Override
@@ -151,10 +167,10 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 						@Override
 						public void run() {
-							//addEntry_BVP(Data in here); //TODO get the BVP data in here
-							//addEntry_EDA(Data in here); // TODO get the EDA data in here
+							addEntry();
 						}
 					});
+
 
 					// sleep to slow down the add of entries
 					try {
@@ -165,22 +181,196 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 				}
 			}
 		}).start();
+
 	}
 
 	// add random data to graph
-	private void addEntry_EDA(float y_value) {
-		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_EDA.appendData(new DataPoint(lastX++, y_value), true, 100);
+	private void addEntry() {
 
-	}
-	private void addEntry_BVP(float y_value) {
 		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_EDA.appendData(new DataPoint(lastX++, y_value), true, 100);
+		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX++]), true, 100);
+		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX++]), true, 100);
 
 	}
 
+	private double[] getEDA(){
 
-	@Override
+		double[] res = new double[10000];
+
+		int i = 0;
+
+		try {
+
+
+			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("eda.csv")));
+			String[] next;
+			while ((next = reader.readNext()) != null){
+				res[i] = Double.parseDouble(next[0]);
+				i = i + 1;
+			}
+			eda_fs = res[1];
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		res = fourierLowPassFilter(res, 150, bvp_fs);
+		return res;
+	}
+
+	private double[] getBVP(){
+
+		double[] res2 = new double[70000];
+		int j = 0;
+
+		try {
+
+
+			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("bvp.csv")));
+			String[] next;
+			while ((next = reader.readNext()) != null){
+				res2[j] = Double.parseDouble(next[0]);
+				j = j + 1;
+			}
+			bvp_fs = res2[1];
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		res2 = fourierLowPassFilter(res2, 150, bvp_fs);
+		return res2;
+	}
+
+	private java.util.Date getTime(){
+
+		float[] time_x = new float[70000];
+
+
+		try {
+
+
+			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("bvp.csv")));
+			String[] next;
+			next = reader.readNext();
+			time_x[0] = Float.parseFloat(next[0]);
+			time = new java.util.Date((long)time_x[0]*1000);
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return time;
+	}
+
+
+	// Update text in Stress status
+	public void updateTextView(String toThis) {
+		TextView textView = statusLabel;
+		textView.setText(toThis);
+	}
+
+	public void alarmHistory(View v){
+		Intent i = new Intent(getApplicationContext(),alarmHistory.class);
+		//StartActivity with the intent i
+		startActivity(i);
+	}
+
+
+
+	public double[] fourierLowPassFilter(double[] data, double lowPass, double frequency){
+		//data: input data, must be spaced equally in time.
+		//lowPass: The cutoff frequency at which
+		//frequency: The frequency of the input data.
+
+		//The apache Fft (Fast Fourier Transform) accepts arrays that are powers of 2.
+		int minPowerOf2 = 1;
+		while(minPowerOf2 < data.length)
+			minPowerOf2 = 2 * minPowerOf2;
+
+		//pad with zeros
+		double[] padded = new double[minPowerOf2];
+		for(int i = 0; i < data.length; i++)
+			padded[i] = data[i];
+
+
+		FastFourierTransformer transformer = new FastFourierTransformer(DftNormalization.STANDARD);
+		Complex[] fourierTransform = transformer.transform(padded, TransformType.FORWARD);
+
+		//build the frequency domain array
+		double[] frequencyDomain = new double[fourierTransform.length];
+		for(int i = 0; i < frequencyDomain.length; i++)
+			frequencyDomain[i] = frequency * i / (double)fourierTransform.length;
+
+		//build the classifier array, 2s are kept and 0s do not pass the filter
+		double[] keepPoints = new double[frequencyDomain.length];
+		keepPoints[0] = 1;
+		for(int i = 1; i < frequencyDomain.length; i++){
+			if(frequencyDomain[i] < lowPass)
+				keepPoints[i] = 2;
+			else
+				keepPoints[i] = 0;
+		}
+
+		//filter the fft
+		for(int i = 0; i < fourierTransform.length; i++)
+			fourierTransform[i] = fourierTransform[i].multiply((double)keepPoints[i]);
+
+		//invert back to time domain
+		Complex[] reverseFourier = transformer.transform(fourierTransform, TransformType.INVERSE);
+
+		//get the real part of the reverse
+		double[] result = new double[data.length];
+		for(int i = 0; i< result.length; i++){
+			result[i] = reverseFourier[i].getReal();
+		}
+
+		return result;
+	}
+
+
+
+	public List<String[]> ppg2peak(){ // TODO: port ppg2peak from matlab
+	}
+
+	public List<String[]> getHRV(){ // TODO: port get_hrv from matlab
+
+	}
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	/*@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		switch (requestCode) {
 			case REQUEST_PERMISSION_ACCESS_COARSE_LOCATION:
@@ -281,9 +471,9 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 				Toast.makeText(MainActivity.this, "Sorry, you can't connect to this device", Toast.LENGTH_SHORT).show();
 			}
 		}
-	}
+	}*/
 
-	@Override
+	/*@Override
 	public void didRequestEnableBluetooth() {
 		// Request the user to enable Bluetooth
 		Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -312,7 +502,7 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 		// The device manager is ready for use
 		if (status == EmpaStatus.READY) {
-			updateLabel(statusLabel, status.name() + " - Turn on your device");
+			updateLabel(statusLabel, status.name() + "");
 			// Start scanning
 			deviceManager.startScanning();
 			// The device manager has established a connection
@@ -339,20 +529,20 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	@Override
 	public void didReceiveAcceleration(int x, int y, int z, double timestamp) {
-		updateLabel(accel_xLabel, "" + x);
-		updateLabel(accel_yLabel, "" + y);
-		updateLabel(accel_zLabel, "" + z);
+		//updateLabel(accel_xLabel, "" + x);
+		//updateLabel(accel_yLabel, "" + y);
+		//updateLabel(accel_zLabel, "" + z);
 	}
 
 	@Override
 	public void didReceiveBVP(float bvp, double timestamp) {
-		updateLabel(bvpLabel, "" + bvp);
+		//updateLabel(bvpLabel, "" + bvp);
 
 	}
 
 	@Override
 	public void didReceiveBatteryLevel(float battery, double timestamp) {
-		updateLabel(batteryLabel, String.format("%.0f %%", battery * 100));
+		//updateLabel(batteryLabel, String.format("%.0f %%", battery * 100));
 	}
 
 	@Override
@@ -372,7 +562,7 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 
 	// Update a label with some text, making sure this is run in the UI thread
 	private void updateLabel(final TextView label, final String text) {
-		runOnUiThread(new Runnable() {
+		//runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
 				label.setText(text);
@@ -381,6 +571,5 @@ public class MainActivity extends AppCompatActivity implements EmpaDataDelegate,
 	}
 
 
-
-}
+}*/
 
