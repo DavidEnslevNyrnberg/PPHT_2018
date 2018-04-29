@@ -32,9 +32,9 @@ for j = 1:length(pasDir)
         % Load meta data; test ID, initial Time, time instances for tags, normalized
         % value of the time instances for tags.
         TestSubject{k}.ID = pasDir(j).name;
-        TestSubject{k}.meta.iniTime = num2str(BVPraw(1));
+        TestSubject{k}.meta.iniTime = num2str(BVPraw(j));
         TestSubject{k}.meta.tags = TAGSraw;
-        TestSubject{k}.meta.tagsNorm = TAGSraw-BVPraw(1);
+        TestSubject{k}.meta.tagsNorm = TAGSraw-BVPraw(j);
         
         % Load ACC, BVP and EDA data
         TestSubject{k}.ACC.fs = ACCraw(2,1);
@@ -48,9 +48,9 @@ end
 
 %% calculate windows for signals
 ite = 1;
-% disp({str2num(TestSubject{ite}.ID), str2num(TestSubject{ite}.meta.iniTime)})
+disp({str2num(TestSubject{ite}.ID), str2num(TestSubject{ite}.meta.iniTime)})
 
-disp(datetime(str2num('1523013020'),'ConvertFrom','posixtime'))
+datetime(str2num(TestSubject{ite}.meta.iniTime),'ConvertFrom','posixtime')
 %% EDA - peak count and slope
 ite = 1; % remove later
 
