@@ -82,16 +82,20 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	//private RelativeLayout dataCnt;
 
 
-	int lastX = 5;
+	int lastX = 300;
 	double eda_fs;
 	double bvp_fs;
-	private double[] edaData;
-	private double[] bvpData;
+	private Float[] edaData;
+	private Float[] bvpData;
+	private Float[] bvpHRV;
 	java.util.Date time;
+	private int[] bvp_peaks;
+	private Float[] eda_peaks;
 
 	// Datapoint variables for the graph
 	private LineGraphSeries<DataPoint> series_EDA;
 	private LineGraphSeries<DataPoint> series_BVP;
+	private LineGraphSeries<DataPoint> series_peaks;
 
 
 
@@ -120,10 +124,19 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		//initEmpaticaDeviceManager();
 
 		// Settings for the interaction with the graph
-		graph.getViewport().setScrollable(true); // enables horizontal scrolling
-		graph.getViewport().setScrollableY(true); // enables vertical scrolling
 		graph.getViewport().setScalable(true); // enables horizontal zooming and scrolling
 		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
+
+
+
+		// Debugging
+		series_peaks = new LineGraphSeries<>();
+		graph.addSeries(series_peaks);
+		// styling series
+		series_peaks.setColor(Color.argb(255,0,255,255));
+		series_peaks.setDrawDataPoints(false);
+		series_peaks.setThickness(1);
+		series_peaks.setDrawAsPath(true);
 
 
 
@@ -132,7 +145,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		graph.addSeries(series_EDA);
 		// styling series
 		series_EDA.setColor(Color.argb(255,0,255,255));
-		series_EDA.setDrawDataPoints(true);
+		series_EDA.setDrawDataPoints(false);
 		series_EDA.setThickness(3);
 		/*graph.getGridLabelRenderer().setLabelFormatter(new DateAsXAxisLabelFormatter(getActivity()));
 		graph.getGridLabelRenderer().setNumHorizontalLabels(3); // only 4 because of the space
@@ -140,16 +153,26 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		// as we use dates as labels, the human rounding to nice readable numbers
 		// is not necessary
 		graph.getGridLabelRenderer().setHumanRounding(false);
+		series_peaks.setDrawAsPath(true);
 
 		series_BVP = new LineGraphSeries<>();
 		graph.addSeries(series_BVP);
 		// styling series
 		series_BVP.setColor(Color.argb(255,255,50,0));
-		series_BVP.setDrawDataPoints(true);
+		series_BVP.setDrawDataPoints(false);
 		series_BVP.setThickness(3);
+		series_peaks.setDrawAsPath(true);
+
+
+		// initial computation
 
 		edaData = getEDA();
 		bvpData = getBVP();
+		bvp_peaks = findpeaks(bvpData,0, 10);
+		//eda_peaks = findpeaks(edaData,0.1f,6);
+		bvpHRV = getHRV(bvp_peaks, bvpData[2]);
+
+
 
 	}
 
@@ -164,7 +187,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			@Override
 			public void run() {
 				// we add 10000 new entries
-				for (int i = 0; i < 1000; i++) {
+				for (int i = 0; i < edaData.length-1; i++) { // TODO: fix length of i
 					runOnUiThread(new Runnable() {
 
 						@Override
@@ -176,7 +199,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 					// sleep to slow down the add of entries
 					try {
-						Thread.sleep(600);
+						Thread.sleep(10);
 					} catch (InterruptedException e) {
 						// manage error ...
 					}
@@ -190,16 +213,16 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	private void addEntry() {
 		// TODO: splitting EDA and BVP to add at correct sample rate
 		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX++]), true, 100);
-		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX++]), true, 100);
-
+		series_EDA.appendData(new DataPoint(lastX++, 100*edaData[lastX]), true, 1000);
+		series_BVP.appendData(new DataPoint(lastX, bvpData[lastX]), true, 1000);
+		series_peaks.appendData(new DataPoint(lastX, bvp_peaks[lastX]), true, 1000);
 	}
 
 	// Function to read the EDA file and do the pre-processing
 	// TODO: Finish pre-processing
-	private double[] getEDA(){
+	private Float[] getEDA(){
 		// return array
-		double[] res = new double[10000];
+		Float[] res2 = new Float[10000];
 
 		int i = 0;
 
@@ -209,23 +232,28 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("eda.csv")));
 			String[] next;
 			while ((next = reader.readNext()) != null){
-				res[i] = Double.parseDouble(next[0]);
-				i = i + 1;
+				res2[i] = Float.parseFloat(next[0]);
+				i += 1;
 			}
-			eda_fs = res[1];
+			eda_fs = res2[1];
 
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
+		Float[] res = new Float[i];
+		for(int j = 0; j<res.length; j++){
+			res[j] = res2[j];
+		}
 		// LP filtering
-		res = fourierLowPassFilter(res, 150, bvp_fs);
+		//res = fourierLowPassFilter(res, 15, eda_fs);
 		return res;
 	}
 	// Function to read the BVP file and do the pre-processing
 	// TODO: Finish pre-processing
-	private double[] getBVP(){
+	private Float[] getBVP(){
 
-		double[] res2 = new double[70000];
+		Float[] res2 = new Float[100000];
 		int j = 0;
 
 		try {
@@ -234,17 +262,22 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("bvp.csv")));
 			String[] next;
 			while ((next = reader.readNext()) != null){
-				res2[j] = Double.parseDouble(next[0]);
-				j = j + 1;
+				res2[j] = Float.parseFloat(next[0]);
+				j += 1;
 			}
 			bvp_fs = res2[1];
 
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		Float[] res = new Float[j];
+		for(int i = 0; i<res.length; i++){
+			res[i] = res2[i];
+		}
+
 		// LP filtering
-		res2 = fourierLowPassFilter(res2, 150, bvp_fs);
-		return res2;
+		//res2 = fourierLowPassFilter(res2, 15, bvp_fs);
+		return res;
 	}
 	// TODO: time converting
 	private java.util.Date getTime(String filename){
@@ -335,33 +368,71 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 
 
-	/*public List<String[]> ppg2peak(){ // TODO: port ppg2peak from matlab
-	}
+	public int[] findpeaks(Float[] data, float threshold, int window_size){
+		int[] peaks = new int[data.length];
 
-	public List<String[]> getHRV(){ // TODO: port get_hrv from matlab
+		int i = 300;
+		int increment_size = window_size/2;
 
-	}*/
 
+		while(i < data.length - (data.length/10)){
+			float avg_front = 0;
+			float avg_mid = 0;
+			float avg_back = 0;
 
-// Moving average filter
-public float[] movingAverageFilter(float[] list, int Arrsize){
-	final int SMOOTH_FACTOR_MAA = 2;//increase for better results   but hits cpu bad
-
-	int listSize = list.length; //input list
-	int iterations = listSize / SMOOTH_FACTOR_MAA;
-	float[] gList = new float[Arrsize];
-	for (int i = 0, node = 0; i < iterations; i++) {
-		float num = 0;
-		for (int k = node; k < node + SMOOTH_FACTOR_MAA; k++) {
-			num = num + list[k];
+			for(int k=0;k<window_size;k++){
+				// Averaging values
+				avg_mid += data[i+k]/window_size;
+				avg_front += data[i+k-5]/window_size;
+				avg_back += data[i+k+5]/window_size;
+			}
+			if( avg_back > avg_mid && avg_mid < avg_front && avg_mid < threshold){
+				peaks[i] =  50;
+			}
+			else{
+				peaks[i] = 0;
+			}
+			i += increment_size;
 		}
-		node = node + SMOOTH_FACTOR_MAA;
-		num = num / SMOOTH_FACTOR_MAA;
-		gList[i] = (num);//out put list
-	}
-	return gList;
 
-}
+		return peaks;
+	}
+
+
+
+
+
+
+
+	public Float[] getHRV(int[] data_peaks, float fs){ // TODO: resampling
+		Float[] init_HRV = new Float[data_peaks.length];
+		float time = 1/fs;
+		int peak_pos = 0;
+		int hrv_iteration = 0;
+
+
+		for(int i = 0; i < data_peaks.length; i++){
+
+			if(data_peaks[i] != 0){
+			int foo = 0;
+				peak_pos = i - peak_pos;
+				init_HRV[hrv_iteration] = (float) peak_pos;
+				peak_pos = i;
+				hrv_iteration +=1;
+			}
+
+		}
+
+		Float[] HRV = new Float[hrv_iteration];
+		for(int i = 0; i<HRV.length; i++){
+			HRV[i] = init_HRV[i];
+		}
+
+
+
+	return HRV;
+	}
+
 
 
 

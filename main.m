@@ -117,7 +117,7 @@ plot(timeBVP,filtDataBVP{ite},'g',timeBVP(locPeakBVP{ite}),valPeakBVP{ite},'or',
 peakDataBVP{ite} = full(sparse(1,locPeakBVP{ite},1,1,length(filtDataBVP{ite})));
 
 f_resample = 8;
-<<<<<<< HEAD
+%%%% HEAD
 [HRV{ite}, qrs_loc_time{ite}, HRV_resample{ite}, qrs_loc_time_resample{ite}]=get_HRV(peakDataBVP{ite}, f_resample, fsBVP{ite});
 end
 
@@ -198,8 +198,8 @@ SVM_xValErr = kfoldLoss(SVM_xVal);
 % startT = TestSubject{1}.meta.iniTime;
 % endT = (length(dataBVP)-1)*fsBVP+startT;
 % time = [startT:fsBVP:endT];
-=======
+% =======
 [HRV, qrs_loc_time, HRV_resample, qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
->>>>>>> 5993777868475adeb044d43ec11c7cd9926cd94e
+% >>>>>>> 5993777868475adeb044d43ec11c7cd9926cd94e
 
 % % time axis can be calculated by the .csv timeelement and 1/fs
