@@ -5,7 +5,7 @@
 clear; clc; close all
 
 if strfind(computer,'PC')==1
-    pasDir = dir(fullfile('..\Data\*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
+    pasDir = dir(fullfile('D:\Data2\*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
     dDir = pasDir(1).folder;
 elseif strfind(computer,'MAC')==1
     pasDir = dir(fullfile('/Data/*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
@@ -31,9 +31,9 @@ for j = 1:length(pasDir)
         
         % Load meta data; test ID, initial Time, time instances for tags, normalized
         % value of the time instances for tags.
-        TestSubject{k}.ID = pasDir(j).name;
-        TestSubject{k}.meta.iniTime = num2str(BVPraw(1));
-        TestSubject{k}.meta.tags = TAGSraw;
+        TestSubject{k}.ID = str2num(pasDir(j).name);
+        TestSubject{k}.meta.iniTime = BVPraw(1);
+        TestSubject{k}.meta.tags = [BVPraw(1);TAGSraw];
         TestSubject{k}.meta.tagsNorm = TAGSraw-BVPraw(1);
         
         % Load ACC, BVP and EDA data
@@ -47,10 +47,41 @@ for j = 1:length(pasDir)
 end
 
 %% calculate windows for signals
-ite = 1;
+ite = 4;
 % disp({str2num(TestSubject{ite}.ID), str2num(TestSubject{ite}.meta.iniTime)})
 
-disp(datetime(str2num('1523013020'),'ConvertFrom','posixtime'))
+for i = 1:length(TestSubject)
+
+dataBVP{ite} = TestSubject{ite}.BVP.data;
+fsBVP{ite} = TestSubject{ite}.BVP.fs;
+T1{ite} = TestSubject{ite}.meta.iniTime;
+tStep{ite} = 1/fsBVP{ite};
+T2{ite} = (length(dataBVP{ite})-1)*tStep{ite}+T1{ite};
+tAx{ite} = T1{ite}:tStep{ite}:T2{ite};
+tags{ite} = TestSubject{ite}.meta.tags;
+[~,locTagBVP{ite}] = min(abs(tAx{ite}-tags{ite}),[],2);
+
+if TestSubject{ite}.ID==459892
+    locTagBVP{ite}(4) = locTagBVP{ite}(3);
+    locTagBVP{ite}(3) = locTagBVP{ite}(4)-5*60*fsBVP;
+elseif TestSubject{ite}.ID==459273 || TestSubject{ite}.ID==460540 || TestSubject{ite}.ID==463522
+    locTagBVP{ite}(3:4) = locTagBVP{ite}(2:3);
+    locTagBVP{ite}(2) = 5*60*fsBVP{ite};
+else 
+    [~,locTagBVP{ite}] = min(abs(tAx{ite}-tags{ite}),[],2);
+end
+
+end
+
+close all
+figure;plot(tAx{ite},dataBVP{ite},'g')
+hold on 
+plot(tAx{ite}(locTagBVP{ite}),dataBVP{ite}(locTagBVP{ite})./dataBVP{ite}(locTagBVP{ite}),'x','MarkerSize',5,'LineWidth',3)
+
+% startT = TestSubject{1}.meta.iniTime;
+% endT = (length(dataBVP)-1)*fsBVP+startT;
+% time = [startT:fsBVP:endT];
+
 %% EDA - peak count and slope
 ite = 1; % remove later
 
@@ -117,7 +148,7 @@ plot(timeBVP,filtDataBVP{ite},'g',timeBVP(locPeakBVP{ite}),valPeakBVP{ite},'or',
 peakDataBVP{ite} = full(sparse(1,locPeakBVP{ite},1,1,length(filtDataBVP{ite})));
 
 f_resample = 8;
-<<<<<<< HEAD
+
 [HRV{ite}, qrs_loc_time{ite}, HRV_resample{ite}, qrs_loc_time_resample{ite}]=get_HRV(peakDataBVP{ite}, f_resample, fsBVP{ite});
 end
 
@@ -195,11 +226,8 @@ SVM_xValErr = kfoldLoss(SVM_xVal);
 
 %% Ideas
 
-% startT = TestSubject{1}.meta.iniTime;
-% endT = (length(dataBVP)-1)*fsBVP+startT;
-% time = [startT:fsBVP:endT];
-=======
+
 [HRV, qrs_loc_time, HRV_resample, qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
->>>>>>> 5993777868475adeb044d43ec11c7cd9926cd94e
+
 
 % % time axis can be calculated by the .csv timeelement and 1/fs
