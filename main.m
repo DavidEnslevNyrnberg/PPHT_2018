@@ -4,37 +4,52 @@
 % - REMEBER TO CHANGE pasDIR to 'real' data path
 clear; clc; close all
 
+doPlot = 1;
+% selecting all test subject directories for either Windows or MAC
 if strfind(computer,'PC')==1
-    pasDir = dir(fullfile('D:\Data2\*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
-    dDir = pasDir(1).folder;
+    testDir = dir(fullfile('D:\31566_Personal_portable_health_technologies\7week\Data\')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
+    dDir = testDir(1).folder;
 elseif strfind(computer,'MAC')==1
-    pasDir = dir(fullfile('/Data/*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
+    testDir = dir(fullfile('/Data/*')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
     dDir = pwd;
+end
+% github created 'nothing.txt' here we remove it as a path
+for i = 1:length(testDir)
+    if strcmp(testDir(i).name,'nothing.txt')==1
+        testDir(i) = [];
+    end
 end
 
 %% import all data to struct -> TestSubject
-for j = 1:length(pasDir)
+missTagSession = []; % initialize for hard coded test subjects with missing tags
+for j = 1:length(testDir)
     if j == 1 || j == 2
         % do nothing for folder '.' and '..'
     else
         % indexing for TestSubject
         k = j-2;
         % initialize dirs for each file.
-        BVPdir = fullfile(dDir,pasDir(j).name,'BVP.csv');
+        BVPdir = fullfile(dDir,testDir(j).name,'BVP.csv');
         BVPraw = load(BVPdir);
-        ACCdir = fullfile(dDir,pasDir(j).name,'ACC.csv');
+        ACCdir = fullfile(dDir,testDir(j).name,'ACC.csv');
         ACCraw = load(ACCdir);
-        EDAdir = fullfile(dDir,pasDir(j).name,'EDA.csv');
+        EDAdir = fullfile(dDir,testDir(j).name,'EDA.csv');
         EDAraw = load(EDAdir);
-        TAGSdir = fullfile(dDir,pasDir(j).name,'tags.csv');
+        TAGSdir = fullfile(dDir,testDir(j).name,'tags.csv');
         TAGSraw = load(TAGSdir);
         
         % Load meta data; test ID, initial Time, time instances for tags, normalized
         % value of the time instances for tags.
-        TestSubject{k}.ID = str2num(pasDir(j).name);
+        TestSubject{k}.ID = str2num(testDir(j).name);
+        % if ID is hardcodded for missing tag. Find row number
+        if ismember(TestSubject{k}.ID,[459892, 460540, 459273, 463522])==1
+            missTagSession=[missTagSession,k];
+        end
         TestSubject{k}.meta.iniTime = BVPraw(1);
         TestSubject{k}.meta.tags = [BVPraw(1);TAGSraw];
         TestSubject{k}.meta.tagsNorm = TAGSraw-BVPraw(1);
+        TestSubject{k}.meta.tagStupid = [BVPraw(1),BVPraw(1)+5*60,BVPraw(1)+12*60,BVPraw(1)+17*60];
+        
         
         % Load ACC, BVP and EDA data
         TestSubject{k}.ACC.fs = ACCraw(2,1);
@@ -47,37 +62,32 @@ for j = 1:length(pasDir)
 end
 
 %% calculate windows for signals
-ite = 4;
+ite = 1;
 % disp({str2num(TestSubject{ite}.ID), str2num(TestSubject{ite}.meta.iniTime)})
 
-for i = 1:length(TestSubject)
+dataBVP = TestSubject{ite}.BVP.data;
+fsBVP = TestSubject{ite}.BVP.fs;
+T1 = TestSubject{ite}.meta.iniTime;
+tStep = 1/fsBVP;
+T2 = (length(dataBVP)-1)*tStep+T1;
+timeBVP = T1:tStep:T2;
+windowBVP = ismember(timeBVP,TestSubject{ite}.meta.tagStupid);
 
-dataBVP{ite} = TestSubject{ite}.BVP.data;
-fsBVP{ite} = TestSubject{ite}.BVP.fs;
-T1{ite} = TestSubject{ite}.meta.iniTime;
-tStep{ite} = 1/fsBVP{ite};
-T2{ite} = (length(dataBVP{ite})-1)*tStep{ite}+T1{ite};
-tAx{ite} = T1{ite}:tStep{ite}:T2{ite};
-tags{ite} = TestSubject{ite}.meta.tags;
-[~,locTagBVP{ite}] = min(abs(tAx{ite}-tags{ite}),[],2);
+dataEDA = TestSubject{ite}.EDA.data;
+fsEDA = TestSubject{ite}.EDA.fs;
+T1 = TestSubject{ite}.meta.iniTime;
+tStep = 1/fsEDA;
+T2 = (length(dataEDA)-1)*tStep+T1;
+timeEDA = T1:tStep:T2;
+windowEDA = ismember(timeEDA,TestSubject{ite}.meta.tagStupid);
 
-if TestSubject{ite}.ID==459892
-    locTagBVP{ite}(4) = locTagBVP{ite}(3);
-    locTagBVP{ite}(3) = locTagBVP{ite}(4)-5*60*fsBVP;
-elseif TestSubject{ite}.ID==459273 || TestSubject{ite}.ID==460540 || TestSubject{ite}.ID==463522
-    locTagBVP{ite}(3:4) = locTagBVP{ite}(2:3);
-    locTagBVP{ite}(2) = 5*60*fsBVP{ite};
-else 
-    [~,locTagBVP{ite}] = min(abs(tAx{ite}-tags{ite}),[],2);
-end
-
-end
-
-close all
-figure;plot(tAx{ite},dataBVP{ite},'g')
-hold on 
-plot(tAx{ite}(locTagBVP{ite}),dataBVP{ite}(locTagBVP{ite})./dataBVP{ite}(locTagBVP{ite}),'x','MarkerSize',5,'LineWidth',3)
-
+% close all
+figure; subplot(2,1,1)
+plot(timeEDA,dataEDA,'g'); hold on; plot(timeEDA(windowEDA),dataEDA(windowEDA),'x','MarkerSize',5,'LineWidth',3)
+plot(timeEDA,dataEDA,'g'); hold on; plot(timeEDA(windowEDA),dataEDA(windowEDA),'x','MarkerSize',5,'LineWidth',3)
+subplot(2,1,2)
+plot(timeBVP,dataBVP,'g'); hold on; plot(timeBVP(windowBVP),dataBVP(windowBVP),'x','MarkerSize',5,'LineWidth',3)
+plot(timeBVP,dataBVP,'g'); hold on; plot(timeBVP(windowBVP),dataBVP(windowBVP),'x','MarkerSize',5,'LineWidth',3)
 % datetime(TestSubject{ite}.meta.tags,'TimeZone','local','ConvertFrom','posixtime')
 % startT = TestSubject{1}.meta.iniTime;
 % endT = (length(dataBVP)-1)*fsBVP+startT;
@@ -119,42 +129,50 @@ plot(timeEDA,detrendDataFilterEDA,'g', timeEDA(locPeakEDA),-valPeakEDA,'or')
 % plot(detrendDataFilterEDA); title('Detrend signal')
 
 %% BVP - HR calc and HRV feature extraction
-% ite = 2; % remove later
-for ite = 1:length(pasDir)-2
-dataBVP{ite} = TestSubject{ite}.BVP.data;
-fsBVP{ite} = TestSubject{ite}.BVP.fs;
-% filterdesigner > bandpass, FIR(equiripple), minimum order, Density
-% Factor(20), (hz, 64, 0, 0.5, 15, 15,5), (dB, 60, 1, 80)
-% load('FIRfilt.mat')
+timeCut = 30; % remove 30sec before and after 'windowBVP/EDA'.
+f_resample = 8; % amount of interpolation steps for HRV_resample
 
-bpFirFilt{ite} = designfilt('bandpassfir', ... % Matteo 0 doesnt work?
-       'StopbandFrequency1',eps, 'PassbandFrequency1',.5, ...
-       'PassbandFrequency2',15, 'StopbandFrequency2',15.5, ...
-       'StopbandAttenuation1',60, 'PassbandRipple',1, 'StopbandAttenuation2',80, ...
-       'DesignMethod','Equiripple', 'SampleRate',fsBVP{ite});
-% fvtool(bpFirFilt) %conform the designed filter
-filtDataBVP{ite} = filtfilt(bpFirFilt{ite},dataBVP{ite});
-timeBVP = 1:length(filtDataBVP{ite});
+for ite = 1:2%length(TestSubject)
+    dataBVP{ite} = TestSubject{ite}.BVP.data;
+    fsBVP{ite} = TestSubject{ite}.BVP.fs;
+    T1{ite} = TestSubject{ite}.meta.iniTime;
+    tStep{ite} = 1/fsBVP{ite};
+    T2{ite} = (length(dataBVP{ite})-1)*tStep{ite}+T1{ite};
+    timeBVP{ite} = T1{ite}:tStep{ite}:T2{ite};
+    timeBVP2{ite} = 1:length(timeBVP{ite});
+    windowBVP{ite} = ismember(timeBVP{ite},TestSubject{ite}.meta.tagStupid);
+    % filterdesigner > bandpass, FIR(equiripple), minimum order, Density
+    % Factor(20), (hz, 64, 0, 0.5, 15, 15,5), (dB, 60, 1, 80)
+    % load('FIRfilt.mat')
+    bpFirFilt{ite} = designfilt('bandpassfir', ... % Matteo 0 doesnt work?
+           'StopbandFrequency1',eps, 'PassbandFrequency1',.5, ...
+           'PassbandFrequency2',15, 'StopbandFrequency2',15.5, ...
+           'StopbandAttenuation1',60, 'PassbandRipple',1, 'StopbandAttenuation2',80, ...
+           'DesignMethod','Equiripple', 'SampleRate',fsBVP{ite});
+    % fvtool(bpFirFilt) %conform the designed filter
+    filtDataBVP{ite} = filtfilt(bpFirFilt{ite},dataBVP{ite});
 
-[valPeakBVP{ite},locPeakBVP{ite}] = PPG2PEAK(filtDataBVP{ite}, 20, 0.75);
-[valPeakBVPtest{ite},locPeakBVPtest{ite}] = findpeaks(-filtDataBVP{ite},'MinPeakHeight',20);
-% plot peak result
-figure(ite)
-subplot(2,1,1)
-plot(timeBVP,filtDataBVP{ite},'g',timeBVP(locPeakBVPtest{ite}),-valPeakBVPtest{ite},'or', 'LineWidth',2)
-subplot(2,1,2)
-plot(timeBVP,filtDataBVP{ite},'g',timeBVP(locPeakBVP{ite}),valPeakBVP{ite},'or', 'LineWidth',2)
+    [valPeakBVP{ite},locPeakBVP{ite}] = PPG2PEAK(filtDataBVP{ite}, 20, 0.75);
+    [valPeakBVPtest{ite},locPeakBVPtest{ite}] = findpeaks(-filtDataBVP{ite},'MinPeakHeight',20);
+    
+    if doPlot == 1
+        % plot peak result
+        figure(ite)
+        subplot(2,1,1)
+        plot(timeBVP{ite},filtDataBVP{ite},'g'); hold on
+        plot(timeBVP{ite}(locPeakBVPtest{ite}),-valPeakBVPtest{ite},'or', 'LineWidth',2)
+        subplot(2,1,2)
+        plot(timeBVP{ite},filtDataBVP{ite},'g'); hold on
+        plot(timeBVP{ite}(locPeakBVP{ite}),valPeakBVP{ite},'or', 'LineWidth',2)
+    end
+    peakDataBVP{ite} = full(sparse(1,locPeakBVP{ite},1,1,length(filtDataBVP{ite})));
+    
 
-
-peakDataBVP{ite} = full(sparse(1,locPeakBVP{ite},1,1,length(filtDataBVP{ite})));
-
-f_resample = 8;
-
-[HRV{ite}, qrs_loc_time{ite}, HRV_resample{ite}, qrs_loc_time_resample{ite}]=get_HRV(peakDataBVP{ite}, f_resample, fsBVP{ite});
+    [HRV{ite}, qrs_loc_time{ite}, HRV_resample{ite}, qrs_loc_time_resample{ite}]=get_HRV(peakDataBVP{ite}, f_resample, fsBVP{ite});
 end
 
 %% HRV feature extraction
-N = (length(pasDir)-2);
+N = (length(testDir)-2);
 f_resample=8; % declare interpolation resample rate, ???
 msInt = 50/1000; % NN50 time interval margin
 count=1;
@@ -212,7 +230,7 @@ count=1+count;
 end
 %% SVM - 2-way classifier
 SVM_feature = [mean_RR;SD_NN;RMS_NN;SDSD;NN50;pNN50;power;area_vlf;LF_norm;HF_norm;LF_HF_ratio]';
-lengthArray =[1:(length(pasDir)-2)*size(peakDataBVP,2)];
+lengthArray =[1:(length(testDir)-2)*size(peakDataBVP,2)];
 SVM_tag = classes(lengthArray);
 t = templateSVM('Standardize',1,'KernelFunction','rbf');
 % t = templateSVM('Standardize',1);
@@ -227,8 +245,11 @@ SVM_xValErr = kfoldLoss(SVM_xVal);
 
 %% Ideas
 
-
 [HRV, qrs_loc_time, HRV_resample, qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
 
+% startT = TestSubject{1}.meta.iniTime;
+% endT = (length(dataBVP)-1)*fsBVP+startT;
+% time = [startT:fsBVP:endT];
+[HRV, qrs_loc_time, HRV_resample, qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
 
 % % time axis can be calculated by the .csv timeelement and 1/fs
