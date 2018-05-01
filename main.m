@@ -78,6 +78,7 @@ figure;plot(tAx{ite},dataBVP{ite},'g')
 hold on 
 plot(tAx{ite}(locTagBVP{ite}),dataBVP{ite}(locTagBVP{ite})./dataBVP{ite}(locTagBVP{ite}),'x','MarkerSize',5,'LineWidth',3)
 
+% datetime(TestSubject{ite}.meta.tags,'TimeZone','local','ConvertFrom','posixtime')
 % startT = TestSubject{1}.meta.iniTime;
 % endT = (length(dataBVP)-1)*fsBVP+startT;
 % time = [startT:fsBVP:endT];
