@@ -88,23 +88,23 @@ if doPlot == 1
     ite = 24;
     close all
     figure; 
-    subplot(2,1,1)
+%     subplot(2,1,1)
     plot(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.EDA.data,'r', 'LineWidth',0.75);
     hold on;
     plot(TestSubject{ite}.EDA.timeEDAax(TestSubject{ite}.EDA.tagBoolEDA),TestSubject{ite}.EDA.data(TestSubject{ite}.EDA.tagBoolEDA),'s', 'MarkerSize',4, 'LineWidth',4)
-    hold off
-    legend('EDA signal', 'tags for test transition', 'Location','southeast')
+%     figure
+%     plot(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.EDA.data,'g'); hold on; plot(TestSubject{ite}.EDA.timeEDAax(TestSubject{ite}.EDA.tagBoolEDA),TestSubject{ite}.EDA.data(TestSubject{ite}.EDA.tagBoolEDA),'x','MarkerSize',5,'LineWidth',3)
+    legend('EDA signal', 'tags for test transition')
     title('Raw EDA signal with tag marks')
     xlabel('Time'); ylabel('EDA')
-    subplot(2,1,2)
-%     figure
-    plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'r')
-    hold on
-    plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
-    hold off
-    legend('PPG signal', 'tags for test transition')
-    title('Raw PPG signal with tag marks')
-    xlabel('Time'); ylabel('PPG')
+%     title(''
+    
+    %     subplot(2,1,2)
+    figure
+    plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'g'); hold on; plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
+    legend('EDA signal', 'tags for test transition')
+    title('Raw EDA signal with tag marks')
+    xlabel('Time'); ylabel('EDA')
 %     plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'g'); hold on; plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
 end
 
