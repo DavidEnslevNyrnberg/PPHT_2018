@@ -15,9 +15,11 @@ import android.net.Uri;
 import android.os.Bundle;
 
 
+import android.support.constraint.solver.widgets.Optimizer;
 import android.support.v7.app.AppCompatActivity;
 
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
 
@@ -30,6 +32,7 @@ import com.empatica.empalink.config.EmpaStatus;
 import com.empatica.empalink.delegate.EmpaDataDelegate;
 import com.empatica.empalink.delegate.EmpaStatusDelegate;
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.LegendRenderer;
 import com.jjoe64.graphview.helper.DateAsXAxisLabelFormatter;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
@@ -38,9 +41,13 @@ import com.opencsv.CSVReader;
 import com.opencsv.bean.CsvToBeanBuilder;
 
 import org.apache.commons.math3.complex.Complex;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
+import org.apache.commons.math3.stat.StatUtils;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.optimization.direct.*;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -49,8 +56,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.IntStream;
 
 
 public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegate, EmpaStatusDelegate*/ {
@@ -82,15 +91,26 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	//private RelativeLayout dataCnt;
 
 
-	int lastX = 300;
+	int lastXeda = 300;
+	int lastXbvp = 300;
+
 	double eda_fs;
 	double bvp_fs;
 	private Float[] edaData;
 	private Float[] bvpData;
-	private Float[] bvpHRV;
+	private double[] bvpHRV;
+	private double[] evaluated_hrv;
 	java.util.Date time;
 	private int[] bvp_peaks;
 	private Float[] eda_peaks;
+	boolean pause = false;
+	boolean start = false;
+	boolean showeda = false;
+	boolean showbvp = true;
+
+
+	Date[] dates;
+
 
 	// Datapoint variables for the graph
 	private LineGraphSeries<DataPoint> series_EDA;
@@ -126,6 +146,13 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		// Settings for the interaction with the graph
 		graph.getViewport().setScalable(true); // enables horizontal zooming and scrolling
 		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
+		// set manual Y bounds
+		graph.getViewport().setYAxisBoundsManual(true);
+		graph.getViewport().setMinY(-150);
+		graph.getViewport().setMaxY(150);
+		graph.getViewport().setMinX(0);
+		graph.getViewport().setMaxX(300);
+
 
 
 
@@ -133,7 +160,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		series_peaks = new LineGraphSeries<>();
 		graph.addSeries(series_peaks);
 		// styling series
-		series_peaks.setColor(Color.argb(255,0,255,255));
+		series_peaks.setColor(Color.argb(0,0,255,255));
 		series_peaks.setDrawDataPoints(false);
 		series_peaks.setThickness(1);
 		series_peaks.setDrawAsPath(true);
@@ -144,15 +171,13 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		series_EDA = new LineGraphSeries<>();
 		graph.addSeries(series_EDA);
 		// styling series
-		series_EDA.setColor(Color.argb(255,0,255,255));
+		series_EDA.setColor(Color.argb(255,0,255,0));
 		series_EDA.setDrawDataPoints(false);
 		series_EDA.setThickness(3);
-		/*graph.getGridLabelRenderer().setLabelFormatter(new DateAsXAxisLabelFormatter(getActivity()));
-		graph.getGridLabelRenderer().setNumHorizontalLabels(3); // only 4 because of the space
-		graph.getViewport().setMinX(getTime());*/
 		// as we use dates as labels, the human rounding to nice readable numbers
 		// is not necessary
-		graph.getGridLabelRenderer().setHumanRounding(false);
+		graph.getGridLabelRenderer().setHumanRounding(true);
+
 		series_peaks.setDrawAsPath(true);
 
 		series_BVP = new LineGraphSeries<>();
@@ -164,58 +189,46 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		series_peaks.setDrawAsPath(true);
 
 
-		// initial computation
+		// initial signal processing
 
 		edaData = getEDA();
 		bvpData = getBVP();
+
 		bvp_peaks = findpeaks(bvpData,0, 10);
 		//eda_peaks = findpeaks(edaData,0.1f,6);
-		bvpHRV = getHRV(bvp_peaks, bvpData[2]);
+		bvpHRV = getHRV(bvp_peaks, bvpData[1]);
+		//dates = time_to_timestamp(bvpHRV);
+		evaluated_hrv = evaluate_hrv(bvpHRV,0);
 
 
 
 	}
-
 
 
 	@Override
 	protected void onResume() {
 		super.onResume();
 		// Simulating real time with thread that append data to the graph
-		new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				// we add 10000 new entries
-				for (int i = 0; i < edaData.length-1; i++) { // TODO: fix length of i
-					runOnUiThread(new Runnable() {
-
-						@Override
-						public void run() {
-							addEntry();
-						}
-					});
-
-
-					// sleep to slow down the add of entries
-					try {
-						Thread.sleep(10);
-					} catch (InterruptedException e) {
-						// manage error ...
-					}
-				}
-			}
-		}).start();
-
 	}
 
 	// add data to graph
-	private void addEntry() {
+	private void addEDAEntry() {
 		// TODO: splitting EDA and BVP to add at correct sample rate
 		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_EDA.appendData(new DataPoint(lastX++, 100*edaData[lastX]), true, 1000);
-		series_BVP.appendData(new DataPoint(lastX, bvpData[lastX]), true, 1000);
-		series_peaks.appendData(new DataPoint(lastX, bvp_peaks[lastX]), true, 1000);
+		series_EDA.appendData(new DataPoint(lastXeda++, 100*edaData[lastXeda]), true, 1000);
+	}
+	private void addBVPEntry() {
+		// TODO: splitting EDA and BVP to add at correct sample rate
+		// here, we choose to display max 100 points on the viewport and we scroll to end
+		series_BVP.appendData(new DataPoint(lastXbvp++, bvpData[lastXbvp]), true, 10000);
+		series_peaks.appendData(new DataPoint(lastXbvp, bvpHRV[lastXbvp]), true, 10000);
+		if(lastXbvp>4000){
+			updateTextView("Stressed",2);
+
+
+		}else{
+			updateTextView("Not stressed",1);
+		}
 	}
 
 	// Function to read the EDA file and do the pre-processing
@@ -242,9 +255,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		}
 
 		Float[] res = new Float[i];
-		for(int j = 0; j<res.length; j++){
-			res[j] = res2[j];
-		}
+			System.arraycopy(res2,0,res,0,res.length);
 		// LP filtering
 		//res = fourierLowPassFilter(res, 15, eda_fs);
 		return res;
@@ -271,9 +282,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			e.printStackTrace();
 		}
 		Float[] res = new Float[j];
-		for(int i = 0; i<res.length; i++){
-			res[i] = res2[i];
-		}
+		System.arraycopy(res2,0,res,0,res.length);
 
 		// LP filtering
 		//res2 = fourierLowPassFilter(res2, 15, bvp_fs);
@@ -302,9 +311,37 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 
 	// Update text in Stress status
-	public void updateTextView(String toThis) {
+	public void updateTextView(String toThis, int color) {
 		TextView textView = statusLabel;
 		textView.setText(toThis);
+		switch (color){
+			case 1:
+				textView.setBackgroundColor(0xFF19B796);
+				break;
+			case 2:
+				textView.setBackgroundColor(Color.RED);
+
+		}
+
+	}
+
+	public Date[] time_to_timestamp(Float[] data){
+		int start_stamp = data[0].intValue();
+		int fs = data[1].intValue();
+		int timestamp = 0;
+
+		Date[] dates = new Date[data.length/fs];
+
+
+		for(int i=0; i<data.length-fs; i++){
+			if((i%fs) == 0){
+
+				Date time = new java.util.Date((long)(start_stamp+(i/fs))*1000);
+				dates[i/fs] = time;
+			}
+
+		}
+		return dates;
 	}
 
 	public void alarmHistory(View v){
@@ -313,8 +350,83 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		startActivity(i);
 
 	}
+	public void settings(View v){
+		Intent i = new Intent(getApplicationContext(),settings.class);
+		//Start the activity with the intent i and requestcode 1
+		startActivityForResult(i,1);
+
+	}
+
+	// Receiving the result from the StartActivityForResult()
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == 1 && resultCode == RESULT_OK){
+			String receivedMessage = data.getStringExtra("data");
+			// Inserting the message from write_message in to the textbox in main
+
+		}
+	}
+
+	public void startstop(View v){
+
+		Button startstop_button = (Button)findViewById(R.id.startStop);
+		if(!start){
+			start = true;
+			startstop_button.setText("Pause");
+
+			new Thread(new Runnable() {
+
+				@Override
+				public void run() {
+					// we add 10000 new entries
+
+					for (int i = 0; i < bvpData.length - 50; i++) { // TODO: fix length of i
+						runOnUiThread(new Runnable() {
+
+							@Override
+							public void run() {
+
+								if(!pause){
+									if (showeda) {
+										addEDAEntry();
+									}
+									if(showbvp){
+										addBVPEntry();
+									}
+								}
 
 
+
+							}
+
+						});
+
+
+						// sleep to slow down the add of entries
+						try {
+							Thread.sleep(16);
+						} catch (InterruptedException e) {
+							// manage error ...
+						}
+					}
+					start = false;
+
+				}
+			}).start();
+		}else{
+			if(!pause){
+				pause = true;
+				startstop_button.setText("Resume");
+
+			}else{
+				pause = false;
+				startstop_button.setText("Pause");
+			}
+		}
+
+
+	}
 
 	public double[] fourierLowPassFilter(double[] data, double lowPass, double frequency){
 		//data: input data, must be spaced equally in time.
@@ -366,8 +478,6 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		return result;
 	}
 
-
-
 	public int[] findpeaks(Float[] data, float threshold, int window_size){
 		int[] peaks = new int[data.length];
 
@@ -398,15 +508,10 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		return peaks;
 	}
 
+	public double[] getHRV(int[] data_peaks, float fs){ // TODO: resampling
+		double[] init_HRV = new double[data_peaks.length];
 
 
-
-
-
-
-	public Float[] getHRV(int[] data_peaks, float fs){ // TODO: resampling
-		Float[] init_HRV = new Float[data_peaks.length];
-		float time = 1/fs;
 		int peak_pos = 0;
 		int hrv_iteration = 0;
 
@@ -414,28 +519,123 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		for(int i = 0; i < data_peaks.length; i++){
 
 			if(data_peaks[i] != 0){
-			int foo = 0;
+
 				peak_pos = i - peak_pos;
-				init_HRV[hrv_iteration] = (float) peak_pos;
+				init_HRV[hrv_iteration] = (double) peak_pos;
 				peak_pos = i;
 				hrv_iteration +=1;
 			}
 
+
 		}
 
-		Float[] HRV = new Float[hrv_iteration];
-		for(int i = 0; i<HRV.length; i++){
-			HRV[i] = init_HRV[i];
+		double[] HRV = new double[hrv_iteration*8];
+
+		int inter_iteration = 0;
+		for(int i=0;i<hrv_iteration-5;i++){
+			double inter_step = (init_HRV[i+1]-init_HRV[i])/8;
+			for (int j=1;j<9;j++){
+				if (inter_step != 0f){
+					HRV[inter_iteration+j] = init_HRV[i]+(j*inter_step);
+				}else{
+					HRV[inter_iteration+j] = init_HRV[i];
+				}
+
+			}
+			if(i==1140){
+				inter_iteration +=1;
+				inter_iteration -=1;
+			}
+			inter_iteration +=8;
 		}
-
-
-
-	return HRV;
+		return HRV;
 	}
 
 
 
+	public double[] evaluate_hrv(double[] HRV_signal, int window_iteration){
+		int foo = 0;
+		int fs = 64;
 
+		int iteration_multiplier = window_iteration*15;
+		double[] hrv_windowed = new double[15*fs];
+		double[] hrv_features = new double[11];
+		System.arraycopy(HRV_signal,iteration_multiplier,hrv_windowed,0,15*fs);
+
+		int window_size  = 15;
+		double mean = StatUtils.mean(hrv_windowed);
+		double sd_nn = get_std(hrv_windowed);
+		double rms_nn = rootMeanSquare(hrv_windowed);
+		double sdsd = get_std(get_diff(hrv_windowed));
+		double nn50 = get_nn50(get_diff(hrv_windowed));
+		double pnn50 = (nn50/hrv_windowed.length*100);
+		// FREQ
+		double[] hrv_fft;
+		double power;
+		double area_vlf;
+		double area_lf_norm;
+		double area_hf_norm;
+		double lf_hf_ratio;
+
+
+
+
+		return hrv_features;
+	}
+
+	public double[] evaluate_eda(double[] eda_signal, int window_iteration){
+		double[] foo = new double[1];
+		int fs = 4;
+		int window_size  = 15;
+		//TODO: Features in 15s windows 10
+		//
+
+		return foo;
+	}
+
+	//TODO: SVM mocdel that takes in evaluation of HRV and EDA
+
+
+
+	// features calculation functions:
+	public static double rootMeanSquare(double[] nums) {
+		double sum = 0.0;
+		for (double num : nums)
+			sum += num * num;
+		return Math.sqrt(sum / nums.length);
+	}
+
+	public double get_std(double[] hrv){
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for(int i=0;i<hrv.length;i++){
+			stats.addValue(hrv[i]);
+		}
+		double res = stats.getStandardDeviation();
+		return res;
+	}
+
+
+	public double[] get_diff(double[] signal){
+	double[] diff_signal = new double[signal.length];
+
+	for (int i=0;i<diff_signal.length;i++){
+		diff_signal[i] = signal[i]-signal[i+1];
+	}
+		return diff_signal;
+	}
+
+	public double get_nn50(double[] signal){
+		double nn50 = 0;
+		int msInt = 50/1000;
+		double[] over_msInt = new double[signal.length];
+
+		for(int i=0;i<signal.length;i++){
+			if(over_msInt[i] != 0 && over_msInt[i]>msInt){
+				nn50 += over_msInt[i];
+			}
+		}
+		return nn50;
+	}
 
 
 

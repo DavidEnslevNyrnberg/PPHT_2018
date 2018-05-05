@@ -124,7 +124,7 @@ end
 %% HRV feature extraction
 N = (length(pasDir)-2);
 f_resample=8; % declare interpolation resample rate, ???
-msInt = 50/1000; % NN50 time interval margin
+x| % NN50 time interval margin
 count=1;
 
 for i = 1:N
@@ -137,7 +137,7 @@ HRV_feature(i).RMS_NN = rms(diff(HRV{i})); % RMS of difference between adjacent 
 RMS_NN(count) = rms(diff(HRV{i}));
 HRV_feature(i).SDSD = std(diff(HRV{i})); % STD of difference between adjacent NN intervals [SDSD]
 SDSD(count) = std(diff(HRV{i}));
-HRV_feature(i).NN50 = sum(diff(HRV{i}) > msInt); % NN intervals that differ by interval margin [NN50]
+HRV_feature(i).NN50 = sum(diff(HRV{i}) > msInt); % NN intervals that	differ by interval margin [NN50]
 NN50(count) = sum(diff(HRV{i}) > msInt);
 HRV_feature(i).pNN50 = HRV_feature(i).NN50/length(HRV{i})*100; % percentage of NN50 intervals in signal [pNN50]
 pNN50(count) = HRV_feature(i).NN50/length(HRV{i})*100;
