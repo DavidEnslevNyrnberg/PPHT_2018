@@ -88,23 +88,23 @@ if doPlot == 1
     ite = 24;
     close all
     figure; 
-    subplot(2,1,1)
+%     subplot(2,1,1)
     plot(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.EDA.data,'r', 'LineWidth',0.75);
     hold on;
     plot(TestSubject{ite}.EDA.timeEDAax(TestSubject{ite}.EDA.tagBoolEDA),TestSubject{ite}.EDA.data(TestSubject{ite}.EDA.tagBoolEDA),'s', 'MarkerSize',4, 'LineWidth',4)
-    hold off
-    legend('EDA signal', 'tags for test transition', 'Location','southeast')
+%     figure
+%     plot(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.EDA.data,'g'); hold on; plot(TestSubject{ite}.EDA.timeEDAax(TestSubject{ite}.EDA.tagBoolEDA),TestSubject{ite}.EDA.data(TestSubject{ite}.EDA.tagBoolEDA),'x','MarkerSize',5,'LineWidth',3)
+    legend('EDA signal', 'tags for test transition')
     title('Raw EDA signal with tag marks')
     xlabel('Time'); ylabel('EDA')
-    subplot(2,1,2)
-%     figure
-    plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'r')
-    hold on
-    plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
-    hold off
-    legend('PPG signal', 'tags for test transition')
-    title('Raw PPG signal with tag marks')
-    xlabel('Time'); ylabel('PPG')
+%     title(''
+    
+    %     subplot(2,1,2)
+    figure
+    plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'g'); hold on; plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
+    legend('EDA signal', 'tags for test transition')
+    title('Raw EDA signal with tag marks')
+    xlabel('Time'); ylabel('EDA')
 %     plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'g'); hold on; plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
 end
 
@@ -207,7 +207,7 @@ end
 %% HRV feature extraction
 N = length(TestSubject);
 f_resample=8; % declare interpolation resample rate, ???
-x| % NN50 time interval margin
+msInt = 50/1000; % NN50 time interval margin
 count=1;
 
 for i = 1:N
@@ -220,7 +220,7 @@ HRV_feature(i).RMS_NN = rms(diff(HRV{i})); % RMS of difference between adjacent 
 RMS_NN(count) = rms(diff(HRV{i}));
 HRV_feature(i).SDSD = std(diff(HRV{i})); % STD of difference between adjacent NN intervals [SDSD]
 SDSD(count) = std(diff(HRV{i}));
-HRV_feature(i).NN50 = sum(diff(HRV{i}) > msInt); % NN intervals that	differ by interval margin [NN50]
+HRV_feature(i).NN50 = sum(diff(HRV{i}) > msInt); % NN intervals that differ by interval margin [NN50]
 NN50(count) = sum(diff(HRV{i}) > msInt);
 HRV_feature(i).pNN50 = HRV_feature(i).NN50/length(HRV{i})*100; % percentage of NN50 intervals in signal [pNN50]
 pNN50(count) = HRV_feature(i).NN50/length(HRV{i})*100;

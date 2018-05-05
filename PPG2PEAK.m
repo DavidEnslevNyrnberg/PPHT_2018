@@ -1,12 +1,13 @@
 function [p2pBVPval, p2pBVPloc] = PPG2PEAK(signal, minPeakHeight, peakCut)
 
-[valPeakBVP,locPeakBVP] = findpeaks(-signal,'MinPeakHeight',minPeakHeight);
+[valPeakBVP,locPeakBVP] = findpeaks(-signal, 'MinPeakHeight', minPeakHeight);
 
-diffStats = quantile(diff(locPeakBVP),[0.25]);
-fprintf('output for lower quantile: %.1f\n',diffStats)
+diffStats = quantile(diff(locPeakBVP),[0.25, 0.5]);
+fprintf('Median: %.1f\n', diffStats(1))
+fprintf('Lower quantile: %.1f\n', diffStats(2))
 
-failedPeak = diff(locPeakBVP) < floor(diffStats*peakCut);
-locSuccesPeak = find(failedPeak ==0);
+failedPeak = diff(locPeakBVP) < floor(diffStats(1)*peakCut);
+locSuccesPeak = find(failedPeak==0);
 locPeakBVP2 = locPeakBVP(locSuccesPeak);
 valPeakBVP2 = -valPeakBVP(locSuccesPeak);
 
