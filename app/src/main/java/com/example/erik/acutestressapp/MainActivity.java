@@ -91,8 +91,8 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	//private RelativeLayout dataCnt;
 
 
-	int lastXeda = 300;
-	int lastXbvp = 300;
+
+	int lastX = 300;
 
 	double eda_fs;
 	double bvp_fs;
@@ -105,8 +105,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	private Float[] eda_peaks;
 	boolean pause = false;
 	boolean start = false;
-	boolean showeda = false;
-	boolean showbvp = true;
+	boolean showeda = true;
 
 
 	Date[] dates;
@@ -115,7 +114,6 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	// Datapoint variables for the graph
 	private LineGraphSeries<DataPoint> series_EDA;
 	private LineGraphSeries<DataPoint> series_BVP;
-	private LineGraphSeries<DataPoint> series_peaks;
 
 
 
@@ -148,59 +146,54 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
 		// set manual Y bounds
 		graph.getViewport().setYAxisBoundsManual(true);
-		graph.getViewport().setMinY(-150);
-		graph.getViewport().setMaxY(150);
-		graph.getViewport().setMinX(0);
-		graph.getViewport().setMaxX(300);
-
-
-
-
-		// Debugging
-		series_peaks = new LineGraphSeries<>();
-		graph.addSeries(series_peaks);
-		// styling series
-		series_peaks.setColor(Color.argb(0,0,255,255));
-		series_peaks.setDrawDataPoints(false);
-		series_peaks.setThickness(1);
-		series_peaks.setDrawAsPath(true);
+		if(showeda){
+			graph.getViewport().setMinY(-1);
+			graph.getViewport().setMaxY(1);
+			graph.getGridLabelRenderer().setNumHorizontalLabels(3);
+			graph.getGridLabelRenderer().setHumanRounding(true);
+		}else{
+			graph.getViewport().setMinY(-150);
+			graph.getViewport().setMaxY(150);
+			graph.getGridLabelRenderer().setNumHorizontalLabels(3);
+			graph.getGridLabelRenderer().setHumanRounding(true);
+		}
+		graph.getViewport().setMinX(300);
+		graph.getViewport().setMaxX(500);
 
 
 
 		// Initialization of the grap series
+		// TODO: Fix the bug where the showing graph has to be declared first
 		series_EDA = new LineGraphSeries<>();
 		graph.addSeries(series_EDA);
-		// styling series
+		series_BVP = new LineGraphSeries<>();
+		graph.addSeries(series_BVP);
+
+/**/
+
+
+		// styling BVP graph
+		series_BVP.setColor(Color.argb(255,255,0,0));
+		series_BVP.setDrawDataPoints(false);
+		series_BVP.setThickness(3);
+		series_BVP.setDrawAsPath(true);
+		// styling EDA graph
 		series_EDA.setColor(Color.argb(255,0,255,0));
 		series_EDA.setDrawDataPoints(false);
 		series_EDA.setThickness(3);
 		// as we use dates as labels, the human rounding to nice readable numbers
 		// is not necessary
-		graph.getGridLabelRenderer().setHumanRounding(true);
 
-		series_peaks.setDrawAsPath(true);
-
-		series_BVP = new LineGraphSeries<>();
-		graph.addSeries(series_BVP);
-		// styling series
-		series_BVP.setColor(Color.argb(255,255,50,0));
-		series_BVP.setDrawDataPoints(false);
-		series_BVP.setThickness(3);
-		series_peaks.setDrawAsPath(true);
 
 
 		// initial signal processing
-
 		edaData = getEDA();
 		bvpData = getBVP();
 
 		bvp_peaks = findpeaks(bvpData,0, 10);
 		//eda_peaks = findpeaks(edaData,0.1f,6);
 		bvpHRV = getHRV(bvp_peaks, bvpData[1]);
-		//dates = time_to_timestamp(bvpHRV);
-		evaluated_hrv = evaluate_hrv(bvpHRV,0);
-
-
+		//evaluated_hrv = evaluate_hrv(bvpHRV,0);
 
 	}
 
@@ -209,20 +202,23 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	protected void onResume() {
 		super.onResume();
 		// Simulating real time with thread that append data to the graph
+
 	}
 
 	// add data to graph
 	private void addEDAEntry() {
 		// TODO: splitting EDA and BVP to add at correct sample rate
 		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_EDA.appendData(new DataPoint(lastXeda++, 100*edaData[lastXeda]), true, 1000);
+
+		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX]), true, 1000);
 	}
 	private void addBVPEntry() {
 		// TODO: splitting EDA and BVP to add at correct sample rate
 		// here, we choose to display max 100 points on the viewport and we scroll to end
-		series_BVP.appendData(new DataPoint(lastXbvp++, bvpData[lastXbvp]), true, 10000);
-		series_peaks.appendData(new DataPoint(lastXbvp, bvpHRV[lastXbvp]), true, 10000);
-		if(lastXbvp>4000){
+
+		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX]), true, 10000);
+
+		if(lastX>4000){
 			updateTextView("Stressed",2);
 
 
@@ -362,8 +358,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
 		if (requestCode == 1 && resultCode == RESULT_OK){
-			String receivedMessage = data.getStringExtra("data");
-			// Inserting the message from write_message in to the textbox in main
+			 showeda = getIntent().getExtras().getBoolean("data",false);
 
 		}
 	}
@@ -379,7 +374,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 				@Override
 				public void run() {
-					// we add 10000 new entries
+					// we add the entries to the graph
 
 					for (int i = 0; i < bvpData.length - 50; i++) { // TODO: fix length of i
 						runOnUiThread(new Runnable() {
@@ -390,8 +385,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 								if(!pause){
 									if (showeda) {
 										addEDAEntry();
-									}
-									if(showbvp){
+									}else{
 										addBVPEntry();
 									}
 								}
@@ -405,7 +399,12 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 						// sleep to slow down the add of entries
 						try {
-							Thread.sleep(16);
+							if(showeda){
+								Thread.sleep(250);
+							}else{
+								Thread.sleep(16);
+							}
+
 						} catch (InterruptedException e) {
 							// manage error ...
 						}

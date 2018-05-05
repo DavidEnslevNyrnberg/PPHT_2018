@@ -6,12 +6,17 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
-import android.widget.ListView;
+
+
 
 
 public class settings extends AppCompatActivity {
+
+
+	boolean showeda;
+
+
 
 	// Creates the layout
 	protected void onCreate(Bundle savedInstanceState) {
@@ -19,23 +24,49 @@ public class settings extends AppCompatActivity {
 		setContentView(R.layout.settings);
 		CheckBox eda = findViewById(R.id.showeda);
 		CheckBox bvp = findViewById(R.id.showbvp);
-		CheckBox live = findViewById(R.id.livemode);
+
+
 		eda.setChecked(false);
 		bvp.setChecked(true);
-		live.setChecked(true);
-
-
-
-
-
 
 	}
 
-	/*public void savesettings(View v){
-		Intent i = new Intent();
-		String message = editText.getText().toString();
-		i.putExtra("data",message);
+	public void showeda_clicked(View v) {
+		CheckBox eda = findViewById(R.id.showeda);
+		CheckBox bvp = findViewById(R.id.showbvp);
+		if (showeda) {
+			showeda = false;
+			eda.setChecked(false);
+			bvp.setChecked(true);
+		} else {
+			showeda = true;
+			eda.setChecked(true);
+			bvp.setChecked(false);
+		}
+	}
+
+		public void showbvp_clicked(View v){
+			CheckBox eda = findViewById(R.id.showeda);
+			CheckBox bvp = findViewById(R.id.showbvp);
+			if(showeda){
+				showeda = false;
+				eda.setChecked(false);
+				bvp.setChecked(true);
+			}else{
+				showeda = true;
+				eda.setChecked(true);
+				bvp.setChecked(false);
+			}
+	}
+		/*Intent i = new Intent();
+
+		i.putExtra("data", showeda);
 		setResult(RESULT_OK,i);
-		finish();
-	}*/
+		finish();*/
+
+	public void updateGraph(View v){
+
+	}
+
+
 }

@@ -50,29 +50,21 @@
         android:gravity="center_vertical"
         android:text="@string/show_bvp"
         android:textColor="@android:color/background_light"
+        android:onClick="showbvp_clicked"
          />
 
-    <CheckBox
-        android:id="@+id/livemode"
-        android:layout_width="300dp"
-        android:layout_height="30dp"
-        android:textSize="20sp"
-        android:layout_below="@+id/showbvp"
-        android:layout_marginEnd="37dp"
-        android:layout_marginTop="20dp"
-        android:gravity="center_vertical"
-        android:text="@string/demo_mode"
-        android:textColor="@android:color/background_light"
-         />
 
     <Button
         android:id="@+id/button"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="202dp"
-        android:text="@string/reset_alarm_data" />
+        android:layout_marginBottom="50dp"
+        android:background="@drawable/rounded_corner"
+        android:text="@string/reset_alarm_data"
+        android:textAppearance="@style/TextAppearance.AppCompat.Button"
+        android:textColor="@android:color/background_light" />
 
 
 
