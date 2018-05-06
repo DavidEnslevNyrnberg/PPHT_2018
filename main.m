@@ -125,11 +125,11 @@ ite = 1; % remove later
 dataEDA = TestSubject{ite}.EDA.data;
 fsEDA = 2*TestSubject{ite}.EDA.fs; %Samplingsrate of EDA (Hz)
 
- %% preprocessing
- %lowpass butterworth filter of order 6 on the EDA signal, 
- %[0.05 1.5](range energy of SCR) , cutoff frequency would be 1.5
- Wn = 1.5/(fsEDA/2);     %Cutoff frequency normalized
- [b,a] = butter(6, Wn,'low');    % 6th- order butterworth  band-pass filter
+%% preprocessing
+%lowpass butterworth filter of order 6 on the EDA signal, 
+%[0.05 1.5](range energy of SCR) , cutoff frequency would be 1.5
+Wn = 1.5/(fsEDA/2);     %Cutoff frequency normalized
+[b,a] = butter(6, Wn,'low');    % 6th- order butterworth  band-pass filter
  
 filter_EDA = filtfilt(b,a,dataEDA); 
 
@@ -224,10 +224,8 @@ end
 % NN intervals is normal peak to peak intervals
 N = length(TestSubject);
 f_resample=8; % declare interpolation resample rate, ???
-x| % NN50 time interval margin
-count=1;
+msInt = 50/1000; % NN50 time interval margin
 
-<<<<<<< HEAD
 for i = 1:size(HRV,1)
     for j = 1:size(HRV,2)
         % Time features for HRV
@@ -247,37 +245,26 @@ for i = 1:size(HRV,1)
         % Frequency freature for HRV
         % Calculate frequency- and power-spectrum
         HRV_freq{i,j} = fft(HRV_resample{i,j});
-        freq_axis{i,j} = linspace(0,length(HRV_freq{i,j})/TestSubject{i}.BVP.fs,length(HRV_freq{i,j}));
-        HRV_power{i,j} = (abs(HRV_freq{i,j}).^2)/freq_axis{i,j};
+        freq_axis{i,j} = linspace(0,length(HRV_freq{i,j})/TestSubject{i}.BVP.fs/f_resample,length(HRV_freq{i,j}));
+        HRV_power{i,j} = (abs(HRV_freq{i,j}).^2)./freq_axis{i,j};
         % total power
         TestSubject{i}.HRV_feature(i,j).power = sum(HRV_power{i,j});
         % calculate VLF for freq <= 0.04Hz
-%         HRV_vlf{i,j} = HRV_power{i,j}(1:find(freq_axis{i,j}<=0.04,1,'last'));
-%         freq_vlf{i,j} = freq_axis{i,j}(find(freq_axis{i,j}<=0.04));
-%         TestSubject{i}.HRV_feature(i,j).area_vlf = trapz(freq_vlf{i,j},HRV_vlf{i,j});
-%         calculate LF for freq = ]0.04 : 0.15 Hz]
-%         HRV_LF{i,j} = HRV_power{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
-%         freq_LF{i,j} = freq_axis{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
-%         area_LF{i,j} = trapz(freq_LF{i,j},HRV_LF{i,j});
-%         TestSubject{i}.HRV_feature(i,j).LF_norm = area_LF{i,j}/(TestSubject{i}.HRV_feature(i,j).power-HRV_feature(i,j).area_vlf);
-%         calculate HF for freq = ]0.15 : 0.4 Hz]
-=======
-for i = 1:N
-% time feature extraction
-HRV_feature(i).mean_RR = mean(HRV{i}); % mean of NN intervals
-mean_RR(count) = mean(HRV{i});
-HRV_feature(i).SD_NN = std(HRV{i}); % standard deviation of NN intervals [SDNN]
-SD_NN(count) = std(HRV{i});
-HRV_feature(i).RMS_NN = rms(diff(HRV{i})); % RMS of difference between adjacent NN intervals [RMSNN]
-RMS_NN(count) = rms(diff(HRV{i}));
-HRV_feature(i).SDSD = std(diff(HRV{i})); % STD of difference between adjacent NN intervals [SDSD]
-SDSD(count) = std(diff(HRV{i}));
-HRV_feature(i).NN50 = sum(diff(HRV{i}) > msInt); % NN intervals that	differ by interval margin [NN50]
-NN50(count) = sum(diff(HRV{i}) > msInt);
-HRV_feature(i).pNN50 = HRV_feature(i).NN50/length(HRV{i})*100; % percentage of NN50 intervals in signal [pNN50]
-pNN50(count) = HRV_feature(i).NN50/length(HRV{i})*100;
->>>>>>> b0856501b53b55744bdf428cbb23e095633c943e
-
+        HRV_vlf{i,j} = HRV_power{i,j}(1:find(freq_axis{i,j}<=0.04,1,'last'));
+        freq_vlf{i,j} = freq_axis{i,j}(find(freq_axis{i,j}<=0.04));
+        TestSubject{i}.HRV_feature(i,j).area_vlf = trapz(freq_vlf{i,j},HRV_vlf{i,j});
+        % calculate LF for freq = ]0.04 : 0.15 Hz]
+        HRV_LF{i,j} = HRV_power{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
+        freq_LF{i,j} = freq_axis{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
+        area_LF{i,j} = trapz(freq_LF{i,j},HRV_LF{i,j});
+        TestSubject{i}.HRV_feature(i,j).LF_norm = area_LF{i,j}/(TestSubject{i}.HRV_feature(i,j).power-TestSubject{i}.HRV_feature(i,j).area_vlf);
+        % calculate HF for freq = ]0.15 : 0.4 Hz]
+        HRV_HF{i,j} = HRV_power{i,j}(find(freq_axis{i,j}>0.15,1):find(freq_axis{i,j}<=0.4,1,'last'));
+        freq_HF{i,j} = freq_axis{i,j}(find(freq_axis{i,j}>0.15,1):find(freq_axis{i,j}<=0.4,1,'last'));
+        area_HF{i,j} = trapz(freq_HF{i,j},HRV_HF{i,j});
+        TestSubject{i}.HRV_feature(i,j).HF_norm = area_HF{i,j}/(TestSubject{i}.HRV_feature(i,j).power-TestSubject{i}.HRV_feature(i,j).area_vlf);
+        % calculating LF/HF ratio
+        TestSubject{i}.HRV_feature(i,j).LF_HF_ratio = TestSubject{i}.HRV_feature(i,j).LF_norm/TestSubject{i}.HRV_feature(i,j).HF_norm;
     end
 end
 
