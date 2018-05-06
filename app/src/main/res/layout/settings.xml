@@ -1,0 +1,72 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/background_gradient"
+    android:clickable="false"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    tools:context=".settings">
+
+
+    <TextView
+        android:id="@+id/settings_title"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_below="@+id/battery"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/rounded_corner"
+        android:text="@string/settings"
+        android:textAlignment="center"
+        android:gravity="center_vertical"
+        android:textColor="@android:color/background_light"
+        android:textSize="30sp" />
+
+    <CheckBox
+        android:id="@+id/showeda"
+        android:layout_width="300dp"
+        android:layout_height="30dp"
+        android:textSize="20sp"
+        android:layout_below="@+id/settings_title"
+        android:layout_marginEnd="37dp"
+        android:gravity="center_vertical"
+        android:layout_marginTop="20dp"
+        android:text="@string/show_eda"
+        android:textColor="@android:color/background_light"
+        android:onClick="showeda_clicked"
+         />
+
+    <CheckBox
+        android:id="@+id/showbvp"
+        android:layout_width="300dp"
+        android:layout_height="30dp"
+        android:textSize="20sp"
+        android:layout_below="@+id/showeda"
+        android:layout_marginEnd="37dp"
+        android:layout_marginTop="20dp"
+        android:gravity="center_vertical"
+        android:text="@string/show_bvp"
+        android:textColor="@android:color/background_light"
+        android:onClick="showbvp_clicked"
+         />
+
+
+    <Button
+        android:id="@+id/button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="50dp"
+        android:background="@drawable/rounded_corner"
+        android:text="@string/reset_alarm_data"
+        android:textAppearance="@style/TextAppearance.AppCompat.Button"
+        android:textColor="@android:color/background_light" />
+
+
+
+
+</RelativeLayout>

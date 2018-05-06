@@ -18,9 +18,9 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="10dp"
         android:background="@drawable/rounded_corner"
+        android:gravity="center_vertical"
         android:text="@string/stress_status"
         android:textAlignment="center"
-        android:gravity="center_vertical"
         android:textColor="@android:color/background_light"
         android:textSize="30sp" />
 
@@ -218,10 +218,11 @@
         android:layout_marginStart="40dp"
         android:background="@drawable/rounded_corner"
         android:text="@string/button_settings"
+        android:onClick="settings"
         android:textColor="@android:color/background_light" />
 
     <Button
-        android:id="@+id/button6"
+        android:id="@+id/startStop"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignBaseline="@+id/button5"
@@ -231,6 +232,7 @@
         android:layout_marginEnd="40dp"
         android:background="@drawable/rounded_corner"
         android:text="@string/button_start"
+        android:onClick="startstop"
         android:textAppearance="@style/TextAppearance.AppCompat.Button"
         android:textColor="@android:color/background_light" />
 

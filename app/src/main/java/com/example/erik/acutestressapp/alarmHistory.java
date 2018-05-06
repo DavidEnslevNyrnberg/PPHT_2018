@@ -23,7 +23,7 @@ public class alarmHistory extends AppCompatActivity {
 		final ListView listview = findViewById(R.id.listview);
 
 		String[] values = new String[] { "08.04.18 - 12:25", "08.04.18 - 14:35", "08.04.18 - 16:10",
-				"10.04.18 - 11:05", "11.04.18 - 08:15",   };
+				"10.04.18 - 11:05", "01.05.18 - 22:10",   };
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,R.layout.list_white_text,
 				R.id.list_content, values);
 		listview.setAdapter(adapter);
