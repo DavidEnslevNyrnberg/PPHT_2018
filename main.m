@@ -149,7 +149,7 @@ plot(timeEDA,detrendDataFilterEDA,'g', timeEDA(locPeakEDA),-valPeakEDA,'or')
 timeCut = 30*64; % remove 30sec before and after 'windowBVP/EDA'.
 f_resample = 8; % amount of interpolation steps for HRV_resample
 
-for ite = 1:1%length(TestSubject)
+for ite = 1:length(TestSubject)
 %     dataBVP{ite} = TestSubject{ite}.BVP.data;
 %     fsBVP{ite} = TestSubject{ite}.BVP.fs;
 %     T1{ite} = TestSubject{ite}.meta.iniTime;
@@ -169,7 +169,7 @@ for ite = 1:1%length(TestSubject)
     % fvtool(bpFirFilt) %conform the designed filter
     filtDataBVP{ite} = filtfilt(bpFirFilt{ite},TestSubject{ite}.BVP.data);
 
-    [valPeakBVP{ite},locPeakBVP{ite}] = PPG2PEAK(filtDataBVP{ite}, 20, 0.75);
+    [valPeakBVP{ite},locPeakBVP{ite}] = PPG2PEAK(filtDataBVP{ite}, 20, 0.75, 0);
     [valPeakBVPtest{ite},locPeakBVPtest{ite}] = findpeaks(-filtDataBVP{ite},'MinPeakHeight',20);
     
     if doPlot == 1
@@ -190,18 +190,24 @@ for ite = 1:1%length(TestSubject)
     windowLoc3 = timeCut+TestSubject{ite}.BVP.tagLocBVP(3):TestSubject{ite}.BVP.tagLocBVP(4)-timeCut;
     
     TestSubject{ite}.BVP.windowLoc = [windowLoc1,windowLoc2,windowLoc3];
-    TestSubject{ite}.BVP.windowData1 = filtDataBVP{ite}(windowLoc1);
-    TestSubject{ite}.BVP.windowData2 = filtDataBVP{ite}(windowLoc2);
-    TestSubject{ite}.BVP.windowData3 = filtDataBVP{ite}(windowLoc3);
+    TestSubject{ite}.BVP.windowData1 = filtDataBVP{ite}(windowLoc1)';
+    TestSubject{ite}.BVP.windowData2 = filtDataBVP{ite}(windowLoc2)';
+    TestSubject{ite}.BVP.windowData3 = filtDataBVP{ite}(windowLoc3)';
     TestSubject{ite}.BVP.windowPeak1 = peakDataBVP{ite}(windowLoc1);
     TestSubject{ite}.BVP.windowPeak2 = peakDataBVP{ite}(windowLoc2);
     TestSubject{ite}.BVP.windowPeak3 = peakDataBVP{ite}(windowLoc3);
     
-%     plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.windowData),filtDataBVP{ite}(TestSubject{ite}.BVP.windowData),'b');
-%     hold on
-%     plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagLocBVP),filtDataBVP{ite}(TestSubject{ite}.BVP.tagLocBVP), 'x', 'LineWidth',5);
+    if doPlot == 1
+        figure
+        plot(TestSubject{ite}.BVP.timeBVPax(windowLoc1), TestSubject{ite}.BVP.windowData1, 'b');
+        hold on
+        plot(TestSubject{ite}.BVP.timeBVPax(logical(TestSubject{ite}.BVP.windowPeak1)), TestSubject{ite}.BVP.windowData1(logical(TestSubject{ite}.BVP.windowPeak1)), 'ro', 'MarkerSize',4);
+        hold off
+    end
     
-    [HRV{ite}, qrs_loc_time{ite}, HRV_resample{ite}, qrs_loc_time_resample{ite}]=get_HRV(peakDataBVP{ite}, f_resample, TestSubject{ite}.BVP.fs);
+    [HRV{ite,1}, qrs_loc_time{ite,1}, HRV_resample{ite,1}, qrs_loc_time_resample{ite,1}]=get_HRV(TestSubject{ite}.BVP.windowPeak1, f_resample, TestSubject{ite}.BVP.fs);
+    [HRV{ite,2}, qrs_loc_time{ite,2}, HRV_resample{ite,2}, qrs_loc_time_resample{ite,2}]=get_HRV(TestSubject{ite}.BVP.windowPeak2, f_resample, TestSubject{ite}.BVP.fs);
+    [HRV{ite,3}, qrs_loc_time{ite,3}, HRV_resample{ite,3}, qrs_loc_time_resample{ite,3}]=get_HRV(TestSubject{ite}.BVP.windowPeak3, f_resample, TestSubject{ite}.BVP.fs);
 end
 
 %% HRV feature extraction
@@ -210,7 +216,7 @@ f_resample=8; % declare interpolation resample rate, ???
 msInt = 50/1000; % NN50 time interval margin
 count=1;
 
-for i = 1:N
+for i = 1:1
 % time feature extraction
 HRV_feature(i).mean_RR = mean(HRV{i}); % mean of NN intervals
 mean_RR(count) = mean(HRV{i});
@@ -277,6 +283,9 @@ SVM_xVal = crossval(SVMModel, 'kfold',5);
 SVM_xValErr = kfoldLoss(SVM_xVal);
 
 %% Ideas
+
+%15sec int idea
+[sample_start: 15: sample_end]
 
 [HRV, qrs_loc_time, HRV_resample, qrs_loc_time_resample]=get_HRV(peakDataBVP, f_resample, fsBVP);
 
