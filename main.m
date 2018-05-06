@@ -4,7 +4,7 @@
 % Use real tags instead of "stupid"
 clear; clc; close all
 
-doPlot = 1;
+doPlot = 0;
 % selecting all test subject directories for either Windows or MAC
 if strfind(computer,'PC')==1
     testDir = dir(fullfile('D:\31566_Personal_portable_health_technologies\7week\Data\')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
@@ -21,7 +21,8 @@ for i = 1:length(testDir)
 end
 
 %% import all data to struct -> TestSubject
-missTagSession = []; % initialize for hard coded test subjects with missing tags
+missTag2 = []; % initialize for hard coded test subjects with missing tags
+missTag3 = []; % its known that 3 miss the stroopStart tag and 1 the stroopEnd tag
 for j = 1:length(testDir)
     if j == 1 || j == 2
         % do nothing for folder '.' and '..'
@@ -41,14 +42,24 @@ for j = 1:length(testDir)
         % Load meta data; test ID, initial Time, time instances for tags, normalized
         % value of the time instances for tags.
         TestSubject{k}.ID = str2num(testDir(j).name);
-        % if ID is hardcodded for missing tag. Find row number
-        if ismember(TestSubject{k}.ID,[459892, 460540, 459273, 463522])==1
-            missTagSession=[missTagSession,k];
+        % if ID is hardcodded for missing tag. Find row number and store
+        if ismember(TestSubject{k}.ID,[460540, 459273, 463522])==1
+            missTag3=[missTag3,k];
+            % tagCalc is tags calculated from stroop-start and-end for each
+            % testsubject
+            TestSubject{k}.meta.tagCalc = [TAGSraw(2)-4.5*60; TAGSraw(2); TAGSraw(2)+7*60; TAGSraw(2)+11.5*60];
+        elseif ismember(TestSubject{k}.ID,[459892])==1
+            missTag2=[missTag2,k];
+            TestSubject{k}.meta.tagCalc = [TAGSraw(3)-11.5*60 ;TAGSraw(3)-7*60; TAGSraw(3) ;TAGSraw(3)+4.5*60];
+        else
+            TestSubject{k}.meta.tagCalc = [TAGSraw(2)-4.5*60; TAGSraw(2); TAGSraw(3); TAGSraw(3)+4.5*60];
         end
         TestSubject{k}.meta.iniTime = BVPraw(1);
         TestSubject{k}.meta.tags = [BVPraw(1);TAGSraw];
         TestSubject{k}.meta.tagStupid = [BVPraw(1),BVPraw(1)+5*60,BVPraw(1)+12*60,BVPraw(1)+17*60];
-        
+        if ismember(TestSubject{k}.ID,[460857])==1 % hard code end data point for sub 17min test
+            TestSubject{k}.meta.tagStupid(4) = BVPraw(1)+17*60-20;
+        end
         
         % Load ACC, BVP and EDA data
         TestSubject{k}.ACC.fs = ACCraw(2,1);
@@ -61,31 +72,29 @@ for j = 1:length(testDir)
 end
 
 %% calculate tag Matrix for signal windows
-% disp({str2num(TestSubject{ite}.ID), str2num(TestSubject{ite}.meta.iniTime)})
-
 for ite = 1:length(TestSubject)
-%     clear T1 tStep T2
-%     dataBVP = TestSubject{ite}.BVP.data;
-%     fsBVP = TestSubject{ite}.BVP.fs;
+    % calc time axis for BVP
     T1 = TestSubject{ite}.meta.iniTime;
     tStep = 1/TestSubject{ite}.BVP.fs;
     T2 = (length(TestSubject{ite}.BVP.data)-1)*tStep+T1;
     TestSubject{ite}.BVP.timeBVPax = T1:tStep:T2;
+    % find tag location for BVP
     [~,TestSubject{ite}.BVP.tagLocBVP] = maxk(ismember(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.meta.tagStupid),4);
     TestSubject{ite}.BVP.tagBoolBVP = ismember(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.meta.tagStupid);
-
-%     dataEDA = TestSubject{ite}.EDA.data;
-%     fsEDA = TestSubject{ite}.EDA.fs;
+    
+    % calc time axis for EDA
     T1 = TestSubject{ite}.meta.iniTime;
     tStep = 1/TestSubject{ite}.EDA.fs;
     T2 = (length(TestSubject{ite}.EDA.data)-1)*tStep+T1;
     TestSubject{ite}.EDA.timeEDAax = T1:tStep:T2;
+    % find tag location for BVP
     [~,TestSubject{ite}.EDA.tagLocEDA] = maxk(ismember(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.meta.tagStupid),4);
     TestSubject{ite}.EDA.tagBoolEDA = ismember(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.meta.tagStupid);
 end
 
+% plot the raw data with time tags.
 if doPlot == 1
-    ite = 24;
+    ite = 19;
     close all
     figure; 
     subplot(2,1,1)
@@ -93,7 +102,7 @@ if doPlot == 1
     hold on;
     plot(TestSubject{ite}.EDA.timeEDAax(TestSubject{ite}.EDA.tagBoolEDA),TestSubject{ite}.EDA.data(TestSubject{ite}.EDA.tagBoolEDA),'s', 'MarkerSize',4, 'LineWidth',4)
     hold off
-    legend('EDA signal', 'tags for test transition', 'Location','southeast')
+    legend('EDA signal', 'tags for test transition', 'Location','northwest')
     title('Raw EDA signal with tag marks')
     xlabel('Time'); ylabel('EDA')
     subplot(2,1,2)
@@ -108,7 +117,7 @@ if doPlot == 1
 %     plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'g'); hold on; plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
 end
 
-% datetime(TestSubject{ite}.meta.tags,'TimeZone','local','ConvertFrom','posixtime')
+% datetime(TestSubject{ite}.meta.tags, 'TimeZone','local', 'ConvertFrom','posixtime')
 
 %% EDA - peak count and slope
 ite = 1; % remove later
@@ -150,30 +159,26 @@ timeCut = 30*64; % remove 30sec before and after 'windowBVP/EDA'.
 f_resample = 8; % amount of interpolation steps for HRV_resample
 
 for ite = 1:length(TestSubject)
-%     dataBVP{ite} = TestSubject{ite}.BVP.data;
-%     fsBVP{ite} = TestSubject{ite}.BVP.fs;
-%     T1{ite} = TestSubject{ite}.meta.iniTime;
-%     tStep{ite} = 1/fsBVP{ite};
-%     T2{ite} = (length(dataBVP{ite})-1)*tStep{ite}+T1{ite};
-%     timeBVPax{ite} = T1{ite}:tStep{ite}:T2{ite};
-%     timeBVP2{ite} = 1:length(timeBVPax{ite});
-%     windowBVP{ite} = ismember(timeBVPax{ite},TestSubject{ite}.meta.tagStupid);
     % filterdesigner > bandpass, FIR(equiripple), minimum order, Density
     % Factor(20), (hz, 64, 0, 0.5, 15, 15,5), (dB, 60, 1, 80)
     % load('FIRfilt.mat')
-    bpFirFilt{ite} = designfilt('bandpassfir', ... % Matteo 0 doesnt work?
-           'StopbandFrequency1',eps, 'PassbandFrequency1',.5, ...
+    bpFirFilt{ite} = designfilt('bandpassfir', ... % actually a LP-filter since
+           'StopbandFrequency1',eps, 'PassbandFrequency1',.5, ... % StopbandFrequency1 = 0 = eps
            'PassbandFrequency2',15, 'StopbandFrequency2',15.5, ...
            'StopbandAttenuation1',60, 'PassbandRipple',1, 'StopbandAttenuation2',80, ...
            'DesignMethod','Equiripple', 'SampleRate',TestSubject{ite}.BVP.fs);
     % fvtool(bpFirFilt) %conform the designed filter
+    % forward and backward filtering with the LP-filter of the BVP signal
     filtDataBVP{ite} = filtfilt(bpFirFilt{ite},TestSubject{ite}.BVP.data);
-
+    
+    % find the BVP peaks in the filtered PPG signal.
     [valPeakBVP{ite},locPeakBVP{ite}] = PPG2PEAK(filtDataBVP{ite}, 20, 0.75, 0);
     [valPeakBVPtest{ite},locPeakBVPtest{ite}] = findpeaks(-filtDataBVP{ite},'MinPeakHeight',20);
+    % asigns the location of locPeakBVP to filtDataBVP's sequence size
+    peakDataBVP{ite} = full(sparse(1,locPeakBVP{ite},1,1,length(filtDataBVP{ite})));
     
     if doPlot == 1
-        % plot peak result
+        % plot detected peaks of peaks for findpeaks and PPG2PEAK.
         figure(ite)
         subplot(2,1,1)
         plot(TestSubject{ite}.BVP.timeBVPax,filtDataBVP{ite},'g'); hold on
@@ -182,18 +187,23 @@ for ite = 1:length(TestSubject)
         plot(TestSubject{ite}.BVP.timeBVPax,filtDataBVP{ite},'g'); hold on
         plot(TestSubject{ite}.BVP.timeBVPax(locPeakBVP{ite}),valPeakBVP{ite},'or', 'LineWidth',2)
     end
-    peakDataBVP{ite} = full(sparse(1,locPeakBVP{ite},1,1,length(filtDataBVP{ite})));
     
-    % creating windows
+    % calculating windows with time offsets for - preStroop - Stroop - postStroop
     windowLoc1 = timeCut+TestSubject{ite}.BVP.tagLocBVP(1):TestSubject{ite}.BVP.tagLocBVP(2)-timeCut;
     windowLoc2 = timeCut+TestSubject{ite}.BVP.tagLocBVP(2):TestSubject{ite}.BVP.tagLocBVP(3)-timeCut;
     windowLoc3 = timeCut+TestSubject{ite}.BVP.tagLocBVP(3):TestSubject{ite}.BVP.tagLocBVP(4)-timeCut;
     
+    
     TestSubject{ite}.BVP.windowLoc = [windowLoc1,windowLoc2,windowLoc3];
-    TestSubject{ite}.BVP.windowData1 = filtDataBVP{ite}(windowLoc1)';
-    TestSubject{ite}.BVP.windowData2 = filtDataBVP{ite}(windowLoc2)';
-    TestSubject{ite}.BVP.windowData3 = filtDataBVP{ite}(windowLoc3)';
+    % 15s segment for Window1
+    TestSubject{ite}.BVP.windowData1 = filtDataBVP{ite}(windowLoc1);
     TestSubject{ite}.BVP.windowPeak1 = peakDataBVP{ite}(windowLoc1);
+%     segmentWindow1 = [1: TestSubject{ite}.BVP.fs*15: (length(TestSubject{ite}.BVP.windowData1))]
+    
+    % 15s segment for Window2
+    TestSubject{ite}.BVP.windowData2 = filtDataBVP{ite}(windowLoc2);
+    TestSubject{ite}.BVP.windowData3 = filtDataBVP{ite}(windowLoc3);
+    % 15s segment for Window3
     TestSubject{ite}.BVP.windowPeak2 = peakDataBVP{ite}(windowLoc2);
     TestSubject{ite}.BVP.windowPeak3 = peakDataBVP{ite}(windowLoc3);
     
@@ -211,26 +221,50 @@ for ite = 1:length(TestSubject)
 end
 
 %% HRV feature extraction
+% NN intervals is normal peak to peak intervals
 N = length(TestSubject);
 f_resample=8; % declare interpolation resample rate, ???
 msInt = 50/1000; % NN50 time interval margin
 count=1;
 
-for i = 1:1
-% time feature extraction
-HRV_feature(i).mean_RR = mean(HRV{i}); % mean of NN intervals
-mean_RR(count) = mean(HRV{i});
-HRV_feature(i).SD_NN = std(HRV{i}); % standard deviation of NN intervals [SDNN]
-SD_NN(count) = std(HRV{i});
-HRV_feature(i).RMS_NN = rms(diff(HRV{i})); % RMS of difference between adjacent NN intervals [RMSNN]
-RMS_NN(count) = rms(diff(HRV{i}));
-HRV_feature(i).SDSD = std(diff(HRV{i})); % STD of difference between adjacent NN intervals [SDSD]
-SDSD(count) = std(diff(HRV{i}));
-HRV_feature(i).NN50 = sum(diff(HRV{i}) > msInt); % NN intervals that differ by interval margin [NN50]
-NN50(count) = sum(diff(HRV{i}) > msInt);
-HRV_feature(i).pNN50 = HRV_feature(i).NN50/length(HRV{i})*100; % percentage of NN50 intervals in signal [pNN50]
-pNN50(count) = HRV_feature(i).NN50/length(HRV{i})*100;
+for i = 1:size(HRV,1)
+    for j = 1:size(HRV,2)
+        % Time features for HRV
+        % Mean of NN intervals
+        TestSubject{i}.HRV_features(j).mean = mean(HRV{i,j});
+        % Standard deviation of NN intervals [SDNN]
+        TestSubject{i}.HRV_features(j).sd = std(HRV{i,j});
+        % RMS of difference between adjacent NN intervals [RMSNN]
+        TestSubject{i}.HRV_features(j).RMS_NN = rms(diff(HRV{i,j}));
+        % STD of difference between adjacent NN intervals [SDSD]
+        TestSubject{i}.HRV_features(j).SDSD = std(diff(HRV{i,j}));
+        % NN intervals that differ by interval margin [NN50]
+        TestSubject{i}.HRV_features(j).NN50 = sum(diff(HRV{i}) > msInt);
+        % Percentage of NN50 intervals in signal [pNN50]
+        TestSubject{i}.HRV_features(j).pNN50 = TestSubject{i}.HRV_features(j).NN50/length(HRV{i})*100;
+        
+        % Frequency freature for HRV
+        % Calculate frequency- and power-spectrum
+        HRV_freq{i,j} = fft(HRV_resample{i,j});
+        freq_axis{i,j} = linspace(0,length(HRV_freq{i,j})/TestSubject{i}.BVP.fs,length(HRV_freq{i,j}));
+        HRV_power{i,j} = (abs(HRV_freq{i,j}).^2)/freq_axis{i,j};
+        % total power
+        TestSubject{i}.HRV_feature(i,j).power = sum(HRV_power{i,j});
+        % calculate VLF for freq <= 0.04Hz
+%         HRV_vlf{i,j} = HRV_power{i,j}(1:find(freq_axis{i,j}<=0.04,1,'last'));
+%         freq_vlf{i,j} = freq_axis{i,j}(find(freq_axis{i,j}<=0.04));
+%         TestSubject{i}.HRV_feature(i,j).area_vlf = trapz(freq_vlf{i,j},HRV_vlf{i,j});
+%         calculate LF for freq = ]0.04 : 0.15 Hz]
+%         HRV_LF{i,j} = HRV_power{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
+%         freq_LF{i,j} = freq_axis{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
+%         area_LF{i,j} = trapz(freq_LF{i,j},HRV_LF{i,j});
+%         TestSubject{i}.HRV_feature(i,j).LF_norm = area_LF{i,j}/(TestSubject{i}.HRV_feature(i,j).power-HRV_feature(i,j).area_vlf);
+%         calculate HF for freq = ]0.15 : 0.4 Hz]
 
+    end
+end
+
+%%
 %  frequency feature extraction
 HRV_freq{i} = fft(HRV_resample{i});
 freq_axis{i} = length(HRV_resample{i});
@@ -244,16 +278,16 @@ power(count) = sum(HRV_power{i});
 
 % calculating VLF area
 HRV_vlf{i} = HRV_power{i}(1:find(f{i}<0.04,1,'last'));
-f_vlf{i} = f{i}(find(f{i}<0.04));
-HRV_feature(i).area_vlf = trapz(f_vlf{i},HRV_vlf{i});
-area_vlf(count) = trapz(f_vlf{i},HRV_vlf{i});
+freq_vlf{i} = f{i}(find(f{i}<0.04));
+HRV_feature(i).area_vlf = trapz(freq_vlf{i},HRV_vlf{i});
+area_vlf(count) = trapz(freq_vlf{i},HRV_vlf{i});
 
 % calculation LF area
-HRV_lf{i} = HRV_power{i}(find(f{i}>0.05,1):find(f{i}<0.15,1,'last'));
-f_lf{i} = f{i}(find(f{i}>0.05,1):find(f{i}<0.15,1,'last'));
-area_lf{i} = trapz(f_lf{i},HRV_lf{i});
-HRV_feature(i).LF_norm = area_lf{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
-LF_norm(count) = area_lf{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
+HRV_LF{i} = HRV_power{i}(find(f{i}>0.05,1):find(f{i}<0.15,1,'last'));
+freq_LF{i} = f{i}(find(f{i}>0.05,1):find(f{i}<0.15,1,'last'));
+area_LF{i} = trapz(freq_LF{i},HRV_LF{i});
+HRV_feature(i).LF_norm = area_LF{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
+LF_norm(count) = area_LF{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
 
 % calculating HF area
 HRV_hf{i} = HRV_power{i}(find(f{i}>0.16,1):find(f{i}<0.40,1,'last'));
@@ -266,7 +300,7 @@ HF_norm(count) = area_hf{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
 HRV_feature(i).LF_HF_ratio = HRV_feature(i).LF_norm/HRV_feature(i).HF_norm;
 LF_HF_ratio(count) = HRV_feature(i).LF_norm/HRV_feature(i).HF_norm;
 count=1+count;
-end
+
 %% SVM - 2-way classifier
 SVM_feature = [mean_RR;SD_NN;RMS_NN;SDSD;NN50;pNN50;power;area_vlf;LF_norm;HF_norm;LF_HF_ratio]';
 lengthArray =[1:(length(testDir)-2)*size(peakDataBVP,2)];
