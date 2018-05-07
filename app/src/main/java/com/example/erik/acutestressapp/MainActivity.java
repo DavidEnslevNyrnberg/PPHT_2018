@@ -1,44 +1,19 @@
 package com.example.erik.acutestressapp;
 
-import android.Manifest;
-import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.content.DialogInterface;
+
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import umich.cse.yctung.androidlibsvm.LibSVM;
-import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
-import android.net.Uri;
-
 import android.os.Bundle;
-
-
-import android.support.constraint.solver.widgets.Optimizer;
 import android.support.v7.app.AppCompatActivity;
 
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-
-
-import com.empatica.empalink.ConnectionNotAllowedException;
-import com.empatica.empalink.EmpaDeviceManager;
-import com.empatica.empalink.config.EmpaSensorStatus;
-import com.empatica.empalink.config.EmpaSensorType;
-import com.empatica.empalink.config.EmpaStatus;
-import com.empatica.empalink.delegate.EmpaDataDelegate;
-import com.empatica.empalink.delegate.EmpaStatusDelegate;
 import com.jjoe64.graphview.GraphView;
-import com.jjoe64.graphview.LegendRenderer;
-import com.jjoe64.graphview.helper.DateAsXAxisLabelFormatter;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
-import com.jjoe64.graphview.Viewport;
 import com.opencsv.CSVReader;
-import com.opencsv.bean.CsvToBeanBuilder;
 
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
@@ -46,20 +21,11 @@ import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 import org.apache.commons.math3.stat.StatUtils;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
-import org.apache.commons.math3.optimization.direct.*;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
-import java.util.Random;
-import java.util.stream.IntStream;
+
 
 
 public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegate, EmpaStatusDelegate*/ {
@@ -108,13 +74,9 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	boolean showeda = true;
 
 
-	Date[] dates;
-
-
 	// Datapoint variables for the graph
 	private LineGraphSeries<DataPoint> series_EDA;
 	private LineGraphSeries<DataPoint> series_BVP;
-
 
 
 	@Override
@@ -142,8 +104,10 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		//initEmpaticaDeviceManager();
 
 		// Settings for the interaction with the graph
-		graph.getViewport().setScalable(true); // enables horizontal zooming and scrolling
-		graph.getViewport().setScalableY(true); // enables vertical zooming and scrolling
+		// enables horizontal zooming and scrolling
+		graph.getViewport().setScalable(true);
+		// enables vertical zooming and scrolling
+		graph.getViewport().setScalableY(true);
 		// set manual Y bounds
 		graph.getViewport().setYAxisBoundsManual(true);
 		if(showeda){
@@ -162,22 +126,24 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 
 
-		// Initialization of the grap series
+		// Initialization of the graph series
 		// TODO: Fix the bug where the showing graph has to be declared first
 		series_EDA = new LineGraphSeries<>();
 		graph.addSeries(series_EDA);
 		series_BVP = new LineGraphSeries<>();
 		graph.addSeries(series_BVP);
 
-/**/
-
 
 		// styling BVP graph
+		// Setting the color
 		series_BVP.setColor(Color.argb(255,255,0,0));
+		// Disable dots in the graph drawing
 		series_BVP.setDrawDataPoints(false);
+		// Setting the thickness of the graph series
 		series_BVP.setThickness(3);
+		// Drawing as a path
 		series_BVP.setDrawAsPath(true);
-		// styling EDA graph
+		// styling EDA series the same way as the BVP series
 		series_EDA.setColor(Color.argb(255,0,255,0));
 		series_EDA.setDrawDataPoints(false);
 		series_EDA.setThickness(3);
@@ -192,32 +158,27 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 		bvp_peaks = findpeaks(bvpData,0, 10);
 		//eda_peaks = findpeaks(edaData,0.1f,6);
-		bvpHRV = getHRV(bvp_peaks, bvpData[1]);
-		//evaluated_hrv = evaluate_hrv(bvpHRV,0);
+		bvpHRV = getHRV(bvp_peaks, bvpData[1], 0);
+		evaluated_hrv = evaluate_hrv(bvpHRV,0,16);
 
 	}
 
 
-	@Override
-	protected void onResume() {
-		super.onResume();
-		// Simulating real time with thread that append data to the graph
 
-	}
 
-	// add data to graph
+	// Appending data to graph
 	private void addEDAEntry() {
-		// TODO: splitting EDA and BVP to add at correct sample rate
-		// here, we choose to display max 100 points on the viewport and we scroll to end
+		// here, we choose to display max 1000 points on the viewport and we scroll to end
 
 		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX]), true, 1000);
 	}
 	private void addBVPEntry() {
-		// TODO: splitting EDA and BVP to add at correct sample rate
-		// here, we choose to display max 100 points on the viewport and we scroll to end
+
+		//here, we choose to display max 1000 points on the viewport and we scroll to end
 
 		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX]), true, 10000);
 
+		/* Proof of concept testing of the Alert view update is working
 		if(lastX>4000){
 			updateTextView("Stressed",2);
 
@@ -225,19 +186,24 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		}else{
 			updateTextView("Not stressed",1);
 		}
+		*/
 	}
 
 	// Function to read the EDA file and do the pre-processing
 	// TODO: Finish pre-processing
 	private Float[] getEDA(){
-		// return array
+		/*This function is reading the eda.csv file from the assets folder and appending the data
+		 to an array for further processing.
+
+		 OUTPUT: Float array with eda signal
+		 */
 		Float[] res2 = new Float[10000];
 
 		int i = 0;
 
 		try {
 
-			// CSV read
+			// Reading the CSV file
 			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("eda.csv")));
 			String[] next;
 			while ((next = reader.readNext()) != null){
@@ -253,13 +219,18 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		Float[] res = new Float[i];
 			System.arraycopy(res2,0,res,0,res.length);
 		// LP filtering
+		// TODO: Fix the low pass filtering of the signal
 		//res = fourierLowPassFilter(res, 15, eda_fs);
 		return res;
 	}
 	// Function to read the BVP file and do the pre-processing
 	// TODO: Finish pre-processing
 	private Float[] getBVP(){
+		/*This function is reading the bvp.csv file from the assets folder and appending the data
+		 to an array for further processing.
 
+		 OUTPUT: Float array with bvp signal
+		 */
 		Float[] res2 = new Float[100000];
 		int j = 0;
 
@@ -281,35 +252,18 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		System.arraycopy(res2,0,res,0,res.length);
 
 		// LP filtering
+		// TODO: Fix the low pass filtering of the signal
 		//res2 = fourierLowPassFilter(res2, 15, bvp_fs);
 		return res;
 	}
-	// TODO: time converting
-	private java.util.Date getTime(String filename){
-
-		float[] time_x = new float[70000];
-
-
-		try {
-
-			// Reads the file and
-			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open(filename)));
-			String[] next;
-			next = reader.readNext();
-			time_x[0] = Float.parseFloat(next[0]);
-			time = new java.util.Date((long)time_x[0]*1000);
-
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return time;
-	}
-
 
 	// Update text in Stress status
-	public void updateTextView(String toThis, int color) {
+	public void updateTextView(String text, int color) {
+	/* Updates the text and color of the stress status textview
+	*
+	* INPUTS: new string to show in the Textview, color of the background of the textview*/
 		TextView textView = statusLabel;
-		textView.setText(toThis);
+		textView.setText(text);
 		switch (color){
 			case 1:
 				textView.setBackgroundColor(0xFF19B796);
@@ -320,8 +274,12 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		}
 
 	}
-
+	// Not implemented
 	public Date[] time_to_timestamp(Float[] data){
+	/* Takes the timestamp from the data array and converts it to Java Date format
+	*
+	* INPUT: Signal data to get the time for the x-axis from*/
+
 		int start_stamp = data[0].intValue();
 		int fs = data[1].intValue();
 		int timestamp = 0;
@@ -341,12 +299,15 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	}
 
 	public void alarmHistory(View v){
+		// Starts the activity to view the alarm history. Uses an on click listener in the xml file.
 		Intent i = new Intent(getApplicationContext(),alarmHistory.class);
 		//StartActivity with the intent i
 		startActivity(i);
 
 	}
 	public void settings(View v){
+		/*Starts the activity to view the settings. Uses an on click listener in the xml file.
+		* It will also return with the updated settings values to be applied. */
 		Intent i = new Intent(getApplicationContext(),settings.class);
 		//Start the activity with the intent i and requestcode 1
 		startActivityForResult(i,1);
@@ -356,6 +317,8 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	// Receiving the result from the StartActivityForResult()
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+	/* when the settings activity ends, this function will run and handle the return data from
+	the changes in the settings activity.*/
 		super.onActivityResult(requestCode, resultCode, data);
 		if (requestCode == 1 && resultCode == RESULT_OK){
 			 showeda = getIntent().getExtras().getBoolean("data",false);
@@ -364,6 +327,8 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	}
 
 	public void startstop(View v){
+	/*On click listener for the start stop button. When clicked it starts a new thread which
+	appends BVP or EDA data to the graph, depending on what */
 
 		Button startstop_button = (Button)findViewById(R.id.startStop);
 		if(!start){
@@ -426,7 +391,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 
 	}
-
+	// Not implemented
 	public double[] fourierLowPassFilter(double[] data, double lowPass, double frequency){
 		//data: input data, must be spaced equally in time.
 		//lowPass: The cutoff frequency at which
@@ -507,15 +472,18 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		return peaks;
 	}
 
-	public double[] getHRV(int[] data_peaks, float fs){ // TODO: resampling
-		double[] init_HRV = new double[data_peaks.length];
+	public double[] getHRV(int[] data_peaks, float fs, int window_iteration){
+		int window_pos = window_iteration*16;
+		int window_size = 16*(int)fs;
+
+		double[] init_HRV = new double[window_size];
 
 
 		int peak_pos = 0;
 		int hrv_iteration = 0;
 
 
-		for(int i = 0; i < data_peaks.length; i++){
+		for(int i = 0; i < init_HRV.length; i++){
 
 			if(data_peaks[i] != 0){
 
@@ -551,17 +519,18 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	}
 
 
+	// Not implemented
+	public double[] evaluate_hrv(double[] HRV_signal, int window_iteration, int window_size){
 
-	public double[] evaluate_hrv(double[] HRV_signal, int window_iteration){
-		int foo = 0;
-		int fs = 64;
+		int fs = 8;
+		window_size = window_size*8;
+		FastFourierTransformer FFT = new FastFourierTransformer(DftNormalization.STANDARD);
 
-		int iteration_multiplier = window_iteration*15;
-		double[] hrv_windowed = new double[15*fs];
+		int iteration_multiplier = (window_iteration*16); // -1 to get the signal to a power of 2
+		double[] hrv_windowed = new double[128];
 		double[] hrv_features = new double[11];
-		System.arraycopy(HRV_signal,iteration_multiplier,hrv_windowed,0,15*fs);
+		System.arraycopy(HRV_signal,iteration_multiplier,hrv_windowed,0,HRV_signal.length);
 
-		int window_size  = 15;
 		double mean = StatUtils.mean(hrv_windowed);
 		double sd_nn = get_std(hrv_windowed);
 		double rms_nn = rootMeanSquare(hrv_windowed);
@@ -569,19 +538,31 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		double nn50 = get_nn50(get_diff(hrv_windowed));
 		double pnn50 = (nn50/hrv_windowed.length*100);
 		// FREQ
-		double[] hrv_fft;
-		double power;
+		Complex[] HRV_fft = FFT.transform(hrv_windowed, TransformType.FORWARD);
+
+
+		double HRV_power = HRV_power(HRV_fft);
 		double area_vlf;
 		double area_lf_norm;
 		double area_hf_norm;
 		double lf_hf_ratio;
 
-
-
-
 		return hrv_features;
 	}
 
+	public double HRV_power(Complex[] signal){
+		double power = 0;
+		for (int i=0;i<signal.length;i++){
+			power += signal[i].abs();
+		}
+		power = Math.pow(power,2);
+
+		power = power/signal.length;
+
+		return power;
+
+	}
+	// Not implemented
 	public double[] evaluate_eda(double[] eda_signal, int window_iteration){
 		double[] foo = new double[1];
 		int fs = 4;
@@ -594,10 +575,12 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 	//TODO: SVM mocdel that takes in evaluation of HRV and EDA
 
-
-
 	// features calculation functions:
+
 	public static double rootMeanSquare(double[] nums) {
+	/*Calculates the root mean square of the input array.
+	*
+	* INPUT: Array to */
 		double sum = 0.0;
 		for (double num : nums)
 			sum += num * num;
@@ -617,7 +600,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	public double[] get_diff(double[] signal){
 	double[] diff_signal = new double[signal.length];
 
-	for (int i=0;i<diff_signal.length;i++){
+	for (int i=0;i<diff_signal.length-1;i++){
 		diff_signal[i] = signal[i]-signal[i+1];
 	}
 		return diff_signal;
@@ -639,38 +622,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	// EMPATICA E4 stuff //TODO: Discuss wether to keep it in our not since we're not using it
 	/*@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		switch (requestCode) {
