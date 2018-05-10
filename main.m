@@ -1,7 +1,7 @@
 % TODO
 % - use libsvm as SVM method
-% - SVM window 15 sec
-% Use real tags instead of "stupid"
+% - problem if 15s window have 0 or 1 peak in get_HRV
+% - Use real tags instead of "stupid"
 clear; clc; close all
 
 doPlot = 0;
@@ -23,93 +23,95 @@ end
 %% import all data to struct -> TestSubject
 missTag2 = []; % initialize for hard coded test subjects with missing tags
 missTag3 = []; % its known that 3 miss the stroopStart tag and 1 the stroopEnd tag
-for j = 1:length(testDir)
-    if j == 1 || j == 2
+for path = 1:length(testDir)
+    if path == 1 || path == 2
         % do nothing for folder '.' and '..'
     else
         % indexing for TestSubject
-        k = j-2;
+        pas = path-2;
         % initialize dirs for each file.
-        BVPdir = fullfile(dDir,testDir(j).name,'BVP.csv');
+        BVPdir = fullfile(dDir,testDir(path).name,'BVP.csv');
         BVPraw = load(BVPdir);
-        ACCdir = fullfile(dDir,testDir(j).name,'ACC.csv');
+        ACCdir = fullfile(dDir,testDir(path).name,'ACC.csv');
         ACCraw = load(ACCdir);
-        EDAdir = fullfile(dDir,testDir(j).name,'EDA.csv');
+        EDAdir = fullfile(dDir,testDir(path).name,'EDA.csv');
         EDAraw = load(EDAdir);
-        TAGSdir = fullfile(dDir,testDir(j).name,'tags.csv');
+        TAGSdir = fullfile(dDir,testDir(path).name,'tags.csv');
         TAGSraw = load(TAGSdir);
         
         % Load meta data; test ID, initial Time, time instances for tags, normalized
         % value of the time instances for tags.
-        TestSubject{k}.ID = str2num(testDir(j).name);
+        TestSubject{pas}.ID = str2num(testDir(path).name);
         % if ID is hardcodded for missing tag. Find row number and store
-        if ismember(TestSubject{k}.ID,[460540, 459273, 463522])==1
-            missTag3=[missTag3,k];
+        if ismember(TestSubject{pas}.ID,[460540, 459273, 463522])==1
+            missTag3=[missTag3,pas];
             % tagCalc is tags calculated from stroop-start and-end for each
             % testsubject
-            TestSubject{k}.meta.tagCalc = [TAGSraw(2)-4.5*60; TAGSraw(2); TAGSraw(2)+7*60; TAGSraw(2)+11.5*60];
-        elseif ismember(TestSubject{k}.ID,[459892])==1
-            missTag2=[missTag2,k];
-            TestSubject{k}.meta.tagCalc = [TAGSraw(3)-11.5*60 ;TAGSraw(3)-7*60; TAGSraw(3) ;TAGSraw(3)+4.5*60];
+            TestSubject{pas}.meta.tagCalc = [TAGSraw(2)-4.5*60; TAGSraw(2); TAGSraw(2)+7*60; TAGSraw(2)+11.5*60];
+        elseif ismember(TestSubject{pas}.ID,[459892])==1
+            missTag2=[missTag2,pas];
+            TestSubject{pas}.meta.tagCalc = [TAGSraw(3)-11.5*60 ;TAGSraw(3)-7*60; TAGSraw(3) ;TAGSraw(3)+4.5*60];
         else
-            TestSubject{k}.meta.tagCalc = [TAGSraw(2)-4.5*60; TAGSraw(2); TAGSraw(3); TAGSraw(3)+4.5*60];
+            TestSubject{pas}.meta.tagCalc = [TAGSraw(2)-4.5*60; TAGSraw(2); TAGSraw(3); TAGSraw(3)+4.5*60];
         end
-        TestSubject{k}.meta.iniTime = BVPraw(1);
-        TestSubject{k}.meta.tags = [BVPraw(1);TAGSraw];
-        TestSubject{k}.meta.tagStupid = [BVPraw(1),BVPraw(1)+5*60,BVPraw(1)+12*60,BVPraw(1)+17*60];
-        if ismember(TestSubject{k}.ID,[460857])==1 % hard code end data point for sub 17min test
-            TestSubject{k}.meta.tagStupid(4) = BVPraw(1)+17*60-20;
+        TestSubject{pas}.meta.iniTime = BVPraw(1);
+        TestSubject{pas}.meta.tags = [BVPraw(1);TAGSraw];
+        TestSubject{pas}.meta.tagStupid = [BVPraw(1),BVPraw(1)+5*60,BVPraw(1)+12*60,BVPraw(1)+17*60];
+        if ismember(TestSubject{pas}.ID,[460857])==1 % hard code end data point for sub 17min test
+            TestSubject{pas}.meta.tagStupid(4) = BVPraw(1)+17*60-20;
         end
         
         % Load ACC, BVP and EDA data
-        TestSubject{k}.ACC.fs = ACCraw(2,1);
-        TestSubject{k}.ACC.data = ACCraw(3:end,:);
-        TestSubject{k}.BVP.fs = BVPraw(2);
-        TestSubject{k}.BVP.data = BVPraw(3:end);
-        TestSubject{k}.EDA.fs = EDAraw(2);
-        TestSubject{k}.EDA.data = EDAraw(3:end);
+        TestSubject{pas}.ACC.fs = ACCraw(2,1);
+        TestSubject{pas}.ACC.data = ACCraw(3:end,:);
+        TestSubject{pas}.BVP.fs = BVPraw(2);
+        TestSubject{pas}.BVP.data = BVPraw(3:end);
+        TestSubject{pas}.EDA.fs = EDAraw(2);
+        TestSubject{pas}.EDA.data = EDAraw(3:end);
     end
 end
 
 %% calculate tag Matrix for signal windows
-for ite = 1:length(TestSubject)
+for pas = 1:length(TestSubject)
     % calc time axis for BVP
-    T1 = TestSubject{ite}.meta.iniTime;
-    tStep = 1/TestSubject{ite}.BVP.fs;
-    T2 = (length(TestSubject{ite}.BVP.data)-1)*tStep+T1;
-    TestSubject{ite}.BVP.timeBVPax = T1:tStep:T2;
+    T1 = TestSubject{pas}.meta.iniTime;
+    tStep = 1/TestSubject{pas}.BVP.fs;
+    T2 = (length(TestSubject{pas}.BVP.data)-1)*tStep+T1;
+    TestSubject{pas}.BVP.timeBVPax = T1:tStep:T2;
     % find tag location for BVP
-    [~,TestSubject{ite}.BVP.tagLocBVP] = maxk(ismember(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.meta.tagStupid),4);
-    TestSubject{ite}.BVP.tagBoolBVP = ismember(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.meta.tagStupid);
+    [~,TestSubject{pas}.BVP.tagLocBVP] = maxk(ismember(TestSubject{pas}.BVP.timeBVPax,TestSubject{pas}.meta.tagStupid),4);
+    TestSubject{pas}.BVP.tagBoolBVP = ismember(TestSubject{pas}.BVP.timeBVPax,TestSubject{pas}.meta.tagStupid);
     
     % calc time axis for EDA
-    T1 = TestSubject{ite}.meta.iniTime;
-    tStep = 1/TestSubject{ite}.EDA.fs;
-    T2 = (length(TestSubject{ite}.EDA.data)-1)*tStep+T1;
-    TestSubject{ite}.EDA.timeEDAax = T1:tStep:T2;
+    T1 = TestSubject{pas}.meta.iniTime;
+    tStep = 1/TestSubject{pas}.EDA.fs;
+    T2 = (length(TestSubject{pas}.EDA.data)-1)*tStep+T1;
+    TestSubject{pas}.EDA.timeEDAax = T1:tStep:T2;
     % find tag location for BVP
-    [~,TestSubject{ite}.EDA.tagLocEDA] = maxk(ismember(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.meta.tagStupid),4);
-    TestSubject{ite}.EDA.tagBoolEDA = ismember(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.meta.tagStupid);
+    [~,TestSubject{pas}.EDA.tagLocEDA] = maxk(ismember(TestSubject{pas}.EDA.timeEDAax,TestSubject{pas}.meta.tagStupid),4);
+    TestSubject{pas}.EDA.tagBoolEDA = ismember(TestSubject{pas}.EDA.timeEDAax,TestSubject{pas}.meta.tagStupid);
 end
 
 % plot the raw data with time tags.
 if doPlot == 1
-    ite = 19;
+    pas = 19;
     close all
-    figure; 
+    figure
     subplot(2,1,1)
-    plot(TestSubject{ite}.EDA.timeEDAax,TestSubject{ite}.EDA.data,'r', 'LineWidth',0.75);
+    timeAxEDA = datetime(TestSubject{pas}.EDA.timeEDAax,'ConvertFrom','posixtime','TimeZone','local');
+    plot(timeAxEDA,TestSubject{pas}.EDA.data,'r', 'LineWidth',0.75);
     hold on;
-    plot(TestSubject{ite}.EDA.timeEDAax(TestSubject{ite}.EDA.tagBoolEDA),TestSubject{ite}.EDA.data(TestSubject{ite}.EDA.tagBoolEDA),'s', 'MarkerSize',4, 'LineWidth',4)
+    plot(timeAxEDA(TestSubject{pas}.EDA.tagBoolEDA),TestSubject{pas}.EDA.data(TestSubject{pas}.EDA.tagBoolEDA),'s', 'MarkerSize',4, 'LineWidth',4)
     hold off
     legend('EDA signal', 'tags for test transition', 'Location','northwest')
     title('Raw EDA signal with tag marks')
     xlabel('Time'); ylabel('EDA')
     subplot(2,1,2)
 %     figure
-    plot(TestSubject{ite}.BVP.timeBVPax,TestSubject{ite}.BVP.data,'r')
+    timeAxEDA = datetime(TestSubject{pas}.BVP.timeBVPax,'ConvertFrom','posixtime','TimeZone','local');
+    plot(timeAxEDA,TestSubject{pas}.BVP.data,'r')
     hold on
-    plot(TestSubject{ite}.BVP.timeBVPax(TestSubject{ite}.BVP.tagBoolBVP),TestSubject{ite}.BVP.data(TestSubject{ite}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
+    plot(timeAxEDA(TestSubject{pas}.BVP.tagBoolBVP),TestSubject{pas}.BVP.data(TestSubject{pas}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
     hold off
     legend('PPG signal', 'tags for test transition')
     title('Raw PPG signal with tag marks')
@@ -120,10 +122,10 @@ end
 % datetime(TestSubject{ite}.meta.tags, 'TimeZone','local', 'ConvertFrom','posixtime')
 
 %% EDA - peak count and slope
-ite = 1; % remove later
+pas = 4; % remove later
 
-dataEDA = TestSubject{ite}.EDA.data;
-fsEDA = 2*TestSubject{ite}.EDA.fs; %Samplingsrate of EDA (Hz)
+dataEDA = TestSubject{pas}.EDA.data;
+fsEDA = 2*TestSubject{pas}.EDA.fs; %Samplingsrate of EDA (Hz)
 
 %% preprocessing
 %lowpass butterworth filter of order 6 on the EDA signal, 
@@ -139,7 +141,7 @@ subplot(2,1,2); plot(filter_EDA); title('Filtered')
 
 %% Detection of peaks
 detrendDataFilterEDA = detrend(filter_EDA);
-[valPeakEDA,locPeakEDA] = findpeaks(-detrendDataFilterEDA); %locPeakEDA gives all peaks in the signal
+[valPeakEDA,locPeakEDA] = findpeaks(detrendDataFilterEDA); %locPeakEDA gives all peaks in the signal
 
 length(locPeakEDA) 
 timeEDA = 1:length(detrendDataFilterEDA);
@@ -147,7 +149,7 @@ timeEDA = 1:length(detrendDataFilterEDA);
 close all
 figure
 % subplot(2,1,1)
-plot(timeEDA,detrendDataFilterEDA,'g', timeEDA(locPeakEDA),-valPeakEDA,'or')
+plot(timeEDA,detrendDataFilterEDA,'g', timeEDA(locPeakEDA),valPeakEDA,'or')
 % subplot(2,1,2)
 % plot(timeBVP,filtDataBVP,'g',timeBVP(locPeakBVP),valPeakBVP,'or')
 
@@ -158,66 +160,90 @@ plot(timeEDA,detrendDataFilterEDA,'g', timeEDA(locPeakEDA),-valPeakEDA,'or')
 timeCut = 30*64; % remove 30sec before and after 'windowBVP/EDA'.
 f_resample = 8; % amount of interpolation steps for HRV_resample
 
-for ite = 1:length(TestSubject)
+for pas = 1:length(TestSubject)
     % filterdesigner > bandpass, FIR(equiripple), minimum order, Density
     % Factor(20), (hz, 64, 0, 0.5, 15, 15,5), (dB, 60, 1, 80)
     % load('FIRfilt.mat')
-    bpFirFilt{ite} = designfilt('bandpassfir', ... % actually a LP-filter since
+    bpFirFilt{pas} = designfilt('bandpassfir', ... % actually a LP-filter since
            'StopbandFrequency1',eps, 'PassbandFrequency1',.5, ... % StopbandFrequency1 = 0 = eps
            'PassbandFrequency2',15, 'StopbandFrequency2',15.5, ...
            'StopbandAttenuation1',60, 'PassbandRipple',1, 'StopbandAttenuation2',80, ...
-           'DesignMethod','Equiripple', 'SampleRate',TestSubject{ite}.BVP.fs);
-    % fvtool(bpFirFilt) %conform the designed filter
+           'DesignMethod','Equiripple', 'SampleRate',TestSubject{pas}.BVP.fs);
+%     fvtool(bpFirFilt) %conform the designed filter
     % forward and backward filtering with the LP-filter of the BVP signal
-    filtDataBVP{ite} = filtfilt(bpFirFilt{ite},TestSubject{ite}.BVP.data);
+    filtDataBVP{pas} = filtfilt(bpFirFilt{pas},TestSubject{pas}.BVP.data);
     
     % find the BVP peaks in the filtered PPG signal.
-    [valPeakBVP{ite},locPeakBVP{ite}] = PPG2PEAK(filtDataBVP{ite}, 20, 0.75, 0);
-    [valPeakBVPtest{ite},locPeakBVPtest{ite}] = findpeaks(-filtDataBVP{ite},'MinPeakHeight',20);
+    [valPeakBVP{pas},locPeakBVP{pas}] = PPG2PEAK(filtDataBVP{pas}, 20, 0.75, 0);
+    [valPeakBVPtest{pas},locPeakBVPtest{pas}] = findpeaks(-filtDataBVP{pas},'MinPeakHeight',20);
     % asigns the location of locPeakBVP to filtDataBVP's sequence size
-    peakDataBVP{ite} = full(sparse(1,locPeakBVP{ite},1,1,length(filtDataBVP{ite})));
+    peakDataBVP{pas} = full(sparse(1,locPeakBVP{pas},1,1,length(filtDataBVP{pas})));
     
     if doPlot == 1
         % plot detected peaks of peaks for findpeaks and PPG2PEAK.
-        figure(ite)
+        timeAx = datetime(TestSubject{pas}.BVP.timeBVPax,'ConvertFrom','posixtime','TimeZone','local');
+        figure(pas)
         subplot(2,1,1)
-        plot(TestSubject{ite}.BVP.timeBVPax,filtDataBVP{ite},'g'); hold on
-        plot(TestSubject{ite}.BVP.timeBVPax(locPeakBVPtest{ite}),-valPeakBVPtest{ite},'or', 'LineWidth',2)
+        plot(timeAx,filtDataBVP{pas},'g'); hold on
+        plot(timeAx(locPeakBVPtest{pas}),-valPeakBVPtest{pas},'or', 'LineWidth',2)
         subplot(2,1,2)
-        plot(TestSubject{ite}.BVP.timeBVPax,filtDataBVP{ite},'g'); hold on
-        plot(TestSubject{ite}.BVP.timeBVPax(locPeakBVP{ite}),valPeakBVP{ite},'or', 'LineWidth',2)
+        plot(timeAx,filtDataBVP{pas},'g'); hold on
+        plot(timeAx(locPeakBVP{pas}),valPeakBVP{pas},'or', 'LineWidth',2)
     end
     
     % calculating windows with time offsets for - preStroop - Stroop - postStroop
-    windowLoc1 = timeCut+TestSubject{ite}.BVP.tagLocBVP(1):TestSubject{ite}.BVP.tagLocBVP(2)-timeCut;
-    windowLoc2 = timeCut+TestSubject{ite}.BVP.tagLocBVP(2):TestSubject{ite}.BVP.tagLocBVP(3)-timeCut;
-    windowLoc3 = timeCut+TestSubject{ite}.BVP.tagLocBVP(3):TestSubject{ite}.BVP.tagLocBVP(4)-timeCut;
-    
-    
-    TestSubject{ite}.BVP.windowLoc = [windowLoc1,windowLoc2,windowLoc3];
-    % 15s segment for Window1
-    TestSubject{ite}.BVP.windowData1 = filtDataBVP{ite}(windowLoc1);
-    TestSubject{ite}.BVP.windowPeak1 = peakDataBVP{ite}(windowLoc1);
-%     segmentWindow1 = [1: TestSubject{ite}.BVP.fs*15: (length(TestSubject{ite}.BVP.windowData1))]
-    
-    % 15s segment for Window2
-    TestSubject{ite}.BVP.windowData2 = filtDataBVP{ite}(windowLoc2);
-    TestSubject{ite}.BVP.windowData3 = filtDataBVP{ite}(windowLoc3);
-    % 15s segment for Window3
-    TestSubject{ite}.BVP.windowPeak2 = peakDataBVP{ite}(windowLoc2);
-    TestSubject{ite}.BVP.windowPeak3 = peakDataBVP{ite}(windowLoc3);
+    windowLoc1 = timeCut+TestSubject{pas}.BVP.tagLocBVP(1):TestSubject{pas}.BVP.tagLocBVP(2)-timeCut;
+    windowLoc2 = timeCut+TestSubject{pas}.BVP.tagLocBVP(2):TestSubject{pas}.BVP.tagLocBVP(3)-timeCut;
+    windowLoc3 = timeCut+TestSubject{pas}.BVP.tagLocBVP(3):TestSubject{pas}.BVP.tagLocBVP(4)-timeCut;
+    % 15s segments for preStroop
+    windowData1 = filtDataBVP{pas}(windowLoc1);
+    windowPeak1 = peakDataBVP{pas}(windowLoc1);
+    windowLengthStart1 = [1: TestSubject{pas}.BVP.fs*15: (length(windowData1))];
+    windowLengthStart1(end) = [];
+    windowLengthEnd1 = [1: TestSubject{pas}.BVP.fs*15: (length(windowData1))]-1;
+    windowLengthEnd1(1) = [];
+    for i = 1:length(windowLengthStart1)
+        TestSubject{pas}.BVP.segmentWindowPeak1{i} = windowPeak1(windowLengthStart1(i):windowLengthEnd1(i));
+    end
+    % 15s segments for Stroop
+    windowData2 = filtDataBVP{pas}(windowLoc2);
+    windowPeak2 = peakDataBVP{pas}(windowLoc2);
+    windowLengthStart2 = [1: TestSubject{pas}.BVP.fs*15: (length(windowData2))];
+    windowLengthStart2(end) = [];
+    windowLengthEnd2 = [1: TestSubject{pas}.BVP.fs*15: (length(windowData2))]-1;
+    windowLengthEnd2(1) = [];
+    for i = 1:length(windowLengthStart2)
+        TestSubject{pas}.BVP.segmentWindowPeak2{i} = windowPeak2(windowLengthStart2(i):windowLengthEnd2(i));
+    end
+    % 15s segments for postStroop
+    windowData3 = filtDataBVP{pas}(windowLoc3);
+    windowPeak3 = peakDataBVP{pas}(windowLoc3);
+    windowLengthStart3 = [1: TestSubject{pas}.BVP.fs*15: (length(windowData3))];
+    windowLengthStart3(end) = [];
+    windowLengthEnd3 = [1: TestSubject{pas}.BVP.fs*15: (length(windowData3))]-1;
+    windowLengthEnd3(1) = [];
+    for i = 1:length(windowLengthStart3)
+        TestSubject{pas}.BVP.segmentWindowPeak3{i} = windowPeak3(windowLengthStart3(i):windowLengthEnd3(i));
+    end
     
     if doPlot == 1
         figure
-        plot(TestSubject{ite}.BVP.timeBVPax(windowLoc1), TestSubject{ite}.BVP.windowData1, 'b');
+        plot(TestSubject{pas}.BVP.timeBVPax(windowLoc1), TestSubject{pas}.BVP.windowData1, 'b');
         hold on
-        plot(TestSubject{ite}.BVP.timeBVPax(logical(TestSubject{ite}.BVP.windowPeak1)), TestSubject{ite}.BVP.windowData1(logical(TestSubject{ite}.BVP.windowPeak1)), 'ro', 'MarkerSize',4);
+        plot(TestSubject{pas}.BVP.timeBVPax(logical(TestSubject{pas}.BVP.windowPeak1)), TestSubject{pas}.BVP.windowData1(logical(TestSubject{pas}.BVP.windowPeak1)), 'ro', 'MarkerSize',4);
         hold off
     end
-    
-    [HRV{ite,1}, qrs_loc_time{ite,1}, HRV_resample{ite,1}, qrs_loc_time_resample{ite,1}]=get_HRV(TestSubject{ite}.BVP.windowPeak1, f_resample, TestSubject{ite}.BVP.fs);
-    [HRV{ite,2}, qrs_loc_time{ite,2}, HRV_resample{ite,2}, qrs_loc_time_resample{ite,2}]=get_HRV(TestSubject{ite}.BVP.windowPeak2, f_resample, TestSubject{ite}.BVP.fs);
-    [HRV{ite,3}, qrs_loc_time{ite,3}, HRV_resample{ite,3}, qrs_loc_time_resample{ite,3}]=get_HRV(TestSubject{ite}.BVP.windowPeak3, f_resample, TestSubject{ite}.BVP.fs);
+    for i = 1:length(windowLengthStart1)
+        [HRV.pre{pas,i}, qrs_loc_time.pre{pas,i}, HRV_resample.pre{pas,i}, qrs_loc_time_resample.pre{pas,i}]=get_HRV(TestSubject{pas}.BVP.segmentWindowPeak1{i}, f_resample, TestSubject{pas}.BVP.fs, [pas,i]);
+    end
+    for i = 1:length(windowLengthStart2)
+        [HRV.Stroop{pas,i}, qrs_loc_time.Stroop{pas,i}, HRV_resample.Stroop{pas,i}, qrs_loc_time_resample.Stroop{pas,i}]=get_HRV(TestSubject{pas}.BVP.segmentWindowPeak2{i}, f_resample, TestSubject{pas}.BVP.fs, [pas,i]);
+    end
+    for i = 1:length(windowLengthStart3)
+        [HRV.post{pas,i}, qrs_loc_time.post{pas,i}, HRV_resample.post{pas,i}, qrs_loc_time_resample.post{pas,i}]=get_HRV(TestSubject{pas}.BVP.segmentWindowPeak3{i}, f_resample, TestSubject{pas}.BVP.fs, [pas,i]);
+    end
+%     [HRV{pas,2}, qrs_loc_time{pas,2}, HRV_resample{pas,2}, qrs_loc_time_resample{pas,2}]=get_HRV(TestSubject{pas}.BVP.windowPeak2, f_resample, TestSubject{pas}.BVP.fs);
+%     [HRV{pas,3}, qrs_loc_time{pas,3}, HRV_resample{pas,3}, qrs_loc_time_resample{pas,3}]=get_HRV(TestSubject{pas}.BVP.windowPeak3, f_resample, TestSubject{pas}.BVP.fs);
 end
 
 %% HRV feature extraction
@@ -246,65 +272,32 @@ for i = 1:size(HRV,1)
         % Calculate frequency- and power-spectrum
         HRV_freq{i,j} = fft(HRV_resample{i,j});
         freq_axis{i,j} = linspace(0,length(HRV_freq{i,j})/TestSubject{i}.BVP.fs/f_resample,length(HRV_freq{i,j}));
-        HRV_power{i,j} = (abs(HRV_freq{i,j}).^2)./freq_axis{i,j};
+        HRV_power{i,j} = (abs(HRV_freq{i,j}).^2)./length(freq_axis{i,j});
         % total power
-        TestSubject{i}.HRV_feature(i,j).power = sum(HRV_power{i,j});
+        TestSubject{i}.HRV_features(j).power = sum(HRV_power{i,j});
         % calculate VLF for freq <= 0.04Hz
         HRV_vlf{i,j} = HRV_power{i,j}(1:find(freq_axis{i,j}<=0.04,1,'last'));
         freq_vlf{i,j} = freq_axis{i,j}(find(freq_axis{i,j}<=0.04));
-        TestSubject{i}.HRV_feature(i,j).area_vlf = trapz(freq_vlf{i,j},HRV_vlf{i,j});
+        TestSubject{i}.HRV_features(j).area_vlf = trapz(freq_vlf{i,j},HRV_vlf{i,j});
         % calculate LF for freq = ]0.04 : 0.15 Hz]
         HRV_LF{i,j} = HRV_power{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
         freq_LF{i,j} = freq_axis{i,j}(find(freq_axis{i,j}>0.04,1):find(freq_axis{i,j}<=0.15,1,'last'));
         area_LF{i,j} = trapz(freq_LF{i,j},HRV_LF{i,j});
-        TestSubject{i}.HRV_feature(i,j).LF_norm = area_LF{i,j}/(TestSubject{i}.HRV_feature(i,j).power-TestSubject{i}.HRV_feature(i,j).area_vlf);
+        TestSubject{i}.HRV_features(j).LF_norm = area_LF{i,j}/(TestSubject{i}.HRV_features(j).power-TestSubject{i}.HRV_features(j).area_vlf);
         % calculate HF for freq = ]0.15 : 0.4 Hz]
         HRV_HF{i,j} = HRV_power{i,j}(find(freq_axis{i,j}>0.15,1):find(freq_axis{i,j}<=0.4,1,'last'));
         freq_HF{i,j} = freq_axis{i,j}(find(freq_axis{i,j}>0.15,1):find(freq_axis{i,j}<=0.4,1,'last'));
         area_HF{i,j} = trapz(freq_HF{i,j},HRV_HF{i,j});
-        TestSubject{i}.HRV_feature(i,j).HF_norm = area_HF{i,j}/(TestSubject{i}.HRV_feature(i,j).power-TestSubject{i}.HRV_feature(i,j).area_vlf);
+        TestSubject{i}.HRV_features(j).HF_norm = area_HF{i,j}/(TestSubject{i}.HRV_features(j).power-TestSubject{i}.HRV_features(j).area_vlf);
         % calculating LF/HF ratio
-        TestSubject{i}.HRV_feature(i,j).LF_HF_ratio = TestSubject{i}.HRV_feature(i,j).LF_norm/TestSubject{i}.HRV_feature(i,j).HF_norm;
+        TestSubject{i}.HRV_features(j).LF_HF_ratio = TestSubject{i}.HRV_features(j).LF_norm/TestSubject{i}.HRV_features(j).HF_norm;
     end
 end
 
-%%
-%  frequency feature extraction
-HRV_freq{i} = fft(HRV_resample{i});
-freq_axis{i} = length(HRV_resample{i});
-%         P2{i,j} = abs(HRV_freq{i,j}/freq_axis{i,j}); % what is this Erik?
-f{i} = f_resample*(0:(freq_axis{i}/2))/freq_axis{i}; % need better name?
-%         HRV_fft{i,j} = P2{i,j}(1:ceil(freq_axis{i,j}/2)+1);
-HRV_power{i} = (abs(HRV_freq{i}).^2)/freq_axis{i};
-% total power
-HRV_feature(i).power = sum(HRV_power{i});
-power(count) = sum(HRV_power{i});
+%% LibSVM lib 2-way classifier - 11 features
+featureOneTest = cell2mat(struct2cell(TestSubject{1}.HRV_features(1)));
 
-% calculating VLF area
-HRV_vlf{i} = HRV_power{i}(1:find(f{i}<0.04,1,'last'));
-freq_vlf{i} = f{i}(find(f{i}<0.04));
-HRV_feature(i).area_vlf = trapz(freq_vlf{i},HRV_vlf{i});
-area_vlf(count) = trapz(freq_vlf{i},HRV_vlf{i});
-
-% calculation LF area
-HRV_LF{i} = HRV_power{i}(find(f{i}>0.05,1):find(f{i}<0.15,1,'last'));
-freq_LF{i} = f{i}(find(f{i}>0.05,1):find(f{i}<0.15,1,'last'));
-area_LF{i} = trapz(freq_LF{i},HRV_LF{i});
-HRV_feature(i).LF_norm = area_LF{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
-LF_norm(count) = area_LF{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
-
-% calculating HF area
-HRV_hf{i} = HRV_power{i}(find(f{i}>0.16,1):find(f{i}<0.40,1,'last'));
-f_hf{i} = f{i}(find(f{i}>0.16,1):find(f{i}<0.40,1,'last'));
-area_hf{i} = trapz(f_hf{i},HRV_hf{i});
-HRV_feature(i).HF_norm = area_hf{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
-HF_norm(count) = area_hf{i}/(HRV_feature(i).power-HRV_feature(i).area_vlf);
-
-% calculating LF/HF ratio
-HRV_feature(i).LF_HF_ratio = HRV_feature(i).LF_norm/HRV_feature(i).HF_norm;
-LF_HF_ratio(count) = HRV_feature(i).LF_norm/HRV_feature(i).HF_norm;
-count=1+count;
-
+TestSubject{i}.HRV_features
 %% SVM - 2-way classifier
 SVM_feature = [mean_RR;SD_NN;RMS_NN;SDSD;NN50;pNN50;power;area_vlf;LF_norm;HF_norm;LF_HF_ratio]';
 lengthArray =[1:(length(testDir)-2)*size(peakDataBVP,2)];
