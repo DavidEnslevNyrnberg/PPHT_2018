@@ -11,8 +11,13 @@
 %  - HRV: resampled HRV interpolated by f_resample to have uniform time 
 %  between HRV samples
 %  - duration: duration of HRV timeline
-function [HRV qrs_loc HRV_resample qrs_loc_resample] = get_HRV(qrs_time, f_resample, fs)
-
+function [HRV, qrs_loc, HRV_resample, qrs_loc_resample] = get_HRV(qrs_time, f_resample, fs, ite)
+    if sum(qrs_time)==0 || sum(qrs_time)==1
+        HRV = 0;
+        qrs_loc = 0;
+        HRV_resample = 0;
+        qrs_loc_resample = 0;
+    else
     % Timeline of ECG
     t=1/fs:1/fs:length(qrs_time)*1/fs;
 
@@ -24,5 +29,5 @@ function [HRV qrs_loc HRV_resample qrs_loc_resample] = get_HRV(qrs_time, f_resam
     % Reampling HRV for frequency analysis
     qrs_loc_resample=qrs_loc(2):1/f_resample:qrs_loc(end)-1/f_resample; % Resampled time series
     HRV_resample=interp1(qrs_loc(2:end),HRV,qrs_loc_resample); % Resamples HRV
-    
+    end
 end
