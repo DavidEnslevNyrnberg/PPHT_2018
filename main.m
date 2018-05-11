@@ -4,7 +4,7 @@
 % - Use real tags instead of "stupid"
 clear; clc; close all
 
-doPlot = 1;
+doPlot = 0;
 % selecting all test subject directories for either Windows or MAC
 if strfind(computer,'PC')==1
     testDir = dir(fullfile('D:\31566_Personal_portable_health_technologies\7week\Data\')); % !!!!!~~CHANGE TO CORRECT PATH~~!!!!!
@@ -336,11 +336,11 @@ for i = 1:size(TestSubject,2)
     featureVec = [featureVec;featureValueTest];
 end
 
-%% train SVM
-model07cut = floor(22*0.7)*length(featureLabelNumber)/22;
-train_label = featureLabelNumber(1:model07cut);
-train_Vec = featureVec(1:model07cut,:);
-modelSVM = svmtrain(train_label, train_Vec) % with default option: C_SVC and rbf kernel
+%% train SVM and 5 fold crossvalidation
+% model07cut = floor(22*0.7)*length(featureLabelNumber)/22;
+train_label = featureLabelNumber;
+train_Vec = featureVec;
+modelSVM = svmtrain(train_label, train_Vec, '-t 2 -v 5') % with default option: C_SVC and rbf kernel
 
 %% run SVM model
 train_label = featureLabelNumber(model07cut+1:end);
