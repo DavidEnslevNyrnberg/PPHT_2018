@@ -5,14 +5,16 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.jjoe64.graphview.DefaultLabelFormatter;
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.helper.DateAsXAxisLabelFormatter;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
+
 import com.opencsv.CSVReader;
 
 import org.apache.commons.math3.complex.Complex;
@@ -24,59 +26,42 @@ import org.apache.commons.math3.stat.StatUtils;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 
 
 public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegate, EmpaStatusDelegate*/ {
 
-	// For E4 set up
-	/*private static final int REQUEST_ENABLE_BT = 1;
-	private static final int REQUEST_PERMISSION_ACCESS_COARSE_LOCATION = 1;
 
-	private static final long STREAMING_TIME = 100000; // Stops streaming 100 000 seconds after
-	// connection
+	// For cleaner code. If one wants to connect to the E4 one must insert the content inside of
+	// this function HERE
+	//empatica_start()
 
-	private static final String EMPATICA_API_KEY = "2baa364dceb843299b942b41a276740b";
-
-	private EmpaDeviceManager deviceManager = null;*/
-
-
-
-
-	//private TextView accel_xLabel;
-	//private TextView accel_yLabel;
-	//private TextView accel_zLabel;
-	//private TextView bvpLabel;
-	//private TextView edaLabel;
-	//private TextView ibiLabel;
-	//private TextView temperatureLabel;
-	//private TextView batteryLabel;
 	private TextView statusLabel;
-	//private TextView deviceNameLabel;
-	//private RelativeLayout dataCnt;
-
-
 
 	int lastX = 300;
+	int lastXpeak = 297;
 
 	double eda_fs;
 	double bvp_fs;
-	private Float[] edaData;
-	private Float[] bvpData;
+	private double[] edaData;
+	private double[] bvpData;
 	private double[] bvpHRV;
-	private double[] evaluated_hrv;
-	java.util.Date time;
+	private double[] hrv_feature;
+	java.util.Date[] time;
 	private int[] bvp_peaks;
-	private Float[] eda_peaks;
+	private double[] eda_peaks;
 	boolean pause = false;
 	boolean start = false;
-	boolean showeda = true;
+	boolean showeda = false;
 
 
 	// Datapoint variables for the graph
 	private LineGraphSeries<DataPoint> series_EDA;
 	private LineGraphSeries<DataPoint> series_BVP;
+	private LineGraphSeries<DataPoint> series_peak;
+	SimpleDateFormat mmss = new SimpleDateFormat("hh:mm:ss");
 
 
 	@Override
@@ -86,69 +71,11 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 
 		// Initialize vars that reference UI components
-		statusLabel =  findViewById(R.id.status);
-		//dataCnt =  findViewById(R.id.dataArea);
-		//accel_xLabel =  findViewById(R.id.accel_x);
-		//accel_yLabel =  findViewById(R.id.accel_y);
-		//accel_zLabel =  findViewById(R.id.accel_z);
-		//bvpLabel =  findViewById(R.id.bvp);
-		//edaLabel =  findViewById(R.id.eda);
-		//ibiLabel =  findViewById(R.id.ibi);
-		//temperatureLabel =  findViewById(R.id.temperature);
-		//batteryLabel =  findViewById(R.id.battery);
-		//deviceNameLabel =  findViewById(R.id.deviceName);
-		GraphView graph = (GraphView) findViewById(R.id.graph);
+		statusLabel = findViewById(R.id.status);
 
-
-		// Initializing the E4
+		// Initializing the E4 device manager
 		//initEmpaticaDeviceManager();
 
-		// Settings for the interaction with the graph
-		// enables horizontal zooming and scrolling
-		graph.getViewport().setScalable(true);
-		// enables vertical zooming and scrolling
-		graph.getViewport().setScalableY(true);
-		// set manual Y bounds
-		graph.getViewport().setYAxisBoundsManual(true);
-		if(showeda){
-			graph.getViewport().setMinY(-1);
-			graph.getViewport().setMaxY(1);
-			graph.getGridLabelRenderer().setNumHorizontalLabels(3);
-			graph.getGridLabelRenderer().setHumanRounding(true);
-		}else{
-			graph.getViewport().setMinY(-150);
-			graph.getViewport().setMaxY(150);
-			graph.getGridLabelRenderer().setNumHorizontalLabels(3);
-			graph.getGridLabelRenderer().setHumanRounding(true);
-		}
-		graph.getViewport().setMinX(300);
-		graph.getViewport().setMaxX(500);
-
-
-
-		// Initialization of the graph series
-		// TODO: Fix the bug where the showing graph has to be declared first
-		series_EDA = new LineGraphSeries<>();
-		graph.addSeries(series_EDA);
-		series_BVP = new LineGraphSeries<>();
-		graph.addSeries(series_BVP);
-
-
-		// styling BVP graph
-		// Setting the color
-		series_BVP.setColor(Color.argb(255,255,0,0));
-		// Disable dots in the graph drawing
-		series_BVP.setDrawDataPoints(false);
-		// Setting the thickness of the graph series
-		series_BVP.setThickness(3);
-		// Drawing as a path
-		series_BVP.setDrawAsPath(true);
-		// styling EDA series the same way as the BVP series
-		series_EDA.setColor(Color.argb(255,0,255,0));
-		series_EDA.setDrawDataPoints(false);
-		series_EDA.setThickness(3);
-		// as we use dates as labels, the human rounding to nice readable numbers
-		// is not necessary
 
 
 
@@ -156,27 +83,43 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		edaData = getEDA();
 		bvpData = getBVP();
 
-		bvp_peaks = findpeaks(bvpData,0, 10);
+		bvp_peaks = findpeaks(bvpData, 0, 10);
 		//eda_peaks = findpeaks(edaData,0.1f,6);
 		bvpHRV = getHRV(bvp_peaks, bvpData[1], 0);
-		evaluated_hrv = evaluate_hrv(bvpHRV,0,16);
+		hrv_feature = hrv_features(bvpHRV, 0, 15);
+		time = time_to_timestamp(bvpData);
 
+		// Runs the function that initializes the graphview and adds the EDA and BVP series
+		initgraph();
 	}
 
 
 
-
-	// Appending data to graph
 	private void addEDAEntry() {
-		// here, we choose to display max 1000 points on the viewport and we scroll to end
+	/*=======================================================================================
+	EDA and peak data is appended to as a new datapoint on the graph. It's using a integer
+	value LastX that just iterates from every fatapoint added. When adding a new datapoint
+	it will scroll to the end, and will delete old datapoints from the graph that is
+	longer than 10 000 points old.
+	=======================================================================================*/
 
-		series_EDA.appendData(new DataPoint(lastX++, edaData[lastX]), true, 1000);
+		series_EDA.appendData(new DataPoint(time[-300+lastX++], edaData[lastX]), true, 10000);
 	}
+
 	private void addBVPEntry() {
+	/*=======================================================================================
+	BVP and peak data is appended to as a new datapoint on the graph. It's using a integer
+	value LastX that just iterates from every datapoint added. When adding a new datapoint
+	it will scroll to the end, and will delete old datapoints from the graph that is
+	longer than 10 000 points old. The peak series has an offset in the code, so thats
+	taken care of setting an integer value with an offset of 3 samples.
+	=======================================================================================*/
 
-		//here, we choose to display max 1000 points on the viewport and we scroll to end
+		series_BVP.appendData(new DataPoint(time[-300+lastX++], bvpData[lastX]), true,
+		10000);
+		series_peak.appendData(new DataPoint(time[-300+lastX], bvp_peaks[lastXpeak++]),
+		true, 10000);
 
-		series_BVP.appendData(new DataPoint(lastX++, bvpData[lastX]), true, 10000);
 
 		/* Proof of concept testing of the Alert view update is working
 		if(lastX>4000){
@@ -189,15 +132,15 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		*/
 	}
 
-	// Function to read the EDA file and do the pre-processing
-	// TODO: Finish pre-processing
-	private Float[] getEDA(){
-		/*This function is reading the eda.csv file from the assets folder and appending the data
-		 to an array for further processing.
+	private double[] getEDA() {
+	/*=======================================================================================
+	This function is reading the eda.csv file from the assets folder and appending the data
+	to an array, is sent through a low pass filter with a cut-off frequency of 15, and put in
+	to a new array with the correct size corresponding to the filtered signal
 
-		 OUTPUT: Float array with eda signal
-		 */
-		Float[] res2 = new Float[10000];
+	OUTPUT: double array with a filtered eda signal
+	=======================================================================================*/
+		double[] res2 = new double[10000];
 
 		int i = 0;
 
@@ -206,32 +149,35 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			// Reading the CSV file
 			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("eda.csv")));
 			String[] next;
-			while ((next = reader.readNext()) != null){
-				res2[i] = Float.parseFloat(next[0]);
+			while ((next = reader.readNext()) != null) {
+				res2[i] = Double.parseDouble(next[0]);
 				i += 1;
 			}
 			eda_fs = res2[1];
 
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		double[] res = new double[i];
+		double[] filter = new double[10000];
+		System.arraycopy(res2, 2, filter, 2, res2.length - 2);
+		filter = LowPassFilter(filter, 15, eda_fs);
+		System.arraycopy(res2, 0, res, 0, 2);
+		System.arraycopy(filter, 2, res, 2, res.length - 2);
 
-		Float[] res = new Float[i];
-			System.arraycopy(res2,0,res,0,res.length);
-		// LP filtering
-		// TODO: Fix the low pass filtering of the signal
-		//res = fourierLowPassFilter(res, 15, eda_fs);
 		return res;
 	}
-	// Function to read the BVP file and do the pre-processing
-	// TODO: Finish pre-processing
-	private Float[] getBVP(){
-		/*This function is reading the bvp.csv file from the assets folder and appending the data
-		 to an array for further processing.
 
-		 OUTPUT: Float array with bvp signal
-		 */
-		Float[] res2 = new Float[100000];
+	private double[] getBVP() {
+	/*=======================================================================================
+	This function is reading the bvp.csv file from the assets folder and appending the data
+	to an array, is sent through a low pass filter with a cut-off frequency of 15, and put in
+	to a new array with the correct size corresponding to the filtered signal
+
+	OUTPUT: double array with a filtered bvp signal
+	=======================================================================================*/
+		double[] res2 = new double[131072];
 		int j = 0;
 
 		try {
@@ -239,8 +185,8 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			// CSV read
 			CSVReader reader = new CSVReader(new InputStreamReader(getAssets().open("bvp.csv")));
 			String[] next;
-			while ((next = reader.readNext()) != null){
-				res2[j] = Float.parseFloat(next[0]);
+			while ((next = reader.readNext()) != null) {
+				res2[j] = Double.parseDouble(next[0]);
 				j += 1;
 			}
 			bvp_fs = res2[1];
@@ -248,23 +194,31 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		Float[] res = new Float[j];
-		System.arraycopy(res2,0,res,0,res.length);
+		double[] res = new double[j];
+
 
 		// LP filtering
 		// TODO: Fix the low pass filtering of the signal
-		//res2 = fourierLowPassFilter(res2, 15, bvp_fs);
+
+
+		double[] filter = new double[131072];
+		System.arraycopy(res2, 2, filter, 2, res2.length - 2);
+		filter = LowPassFilter(filter, 15, bvp_fs);
+		System.arraycopy(res2, 0, res, 0, 2);
+		System.arraycopy(filter, 2, res, 2, res.length - 2);
 		return res;
 	}
 
 	// Update text in Stress status
 	public void updateTextView(String text, int color) {
-	/* Updates the text and color of the stress status textview
-	*
-	* INPUTS: new string to show in the Textview, color of the background of the textview*/
+	/*=======================================================================================
+	Updates the text and color of the stress status textview
+
+	INPUTS: new string to show in the Textview, color of the background of the textview
+	=======================================================================================*/
 		TextView textView = statusLabel;
 		textView.setText(text);
-		switch (color){
+		switch (color) {
 			case 1:
 				textView.setBackgroundColor(0xFF19B796);
 				break;
@@ -274,64 +228,75 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		}
 
 	}
-	// Not implemented
-	public Date[] time_to_timestamp(Float[] data){
-	/* Takes the timestamp from the data array and converts it to Java Date format
-	*
-	* INPUT: Signal data to get the time for the x-axis from*/
 
-		int start_stamp = data[0].intValue();
-		int fs = data[1].intValue();
-		int timestamp = 0;
+	public Date[] time_to_timestamp(double[] data) {
+	/*=======================================================================================
+	Takes the timestamp from the data array and converts it to Java Date format to be used in
+	the x-axis on the graph
 
-		Date[] dates = new Date[data.length/fs];
+	INPUT: Signal data to get the time for the x-axis from
+	OUTPUT: Array of the timestamp corresponding to the sample from the input
+	=======================================================================================*/
+
+		int start_stamp = (int) data[0];
+
+		Date[] dates = new Date[data.length];
 
 
-		for(int i=0; i<data.length-fs; i++){
-			if((i%fs) == 0){
-
-				Date time = new java.util.Date((long)(start_stamp+(i/fs))*1000);
-				dates[i/fs] = time;
-			}
+		for (int i = 0; i < data.length; i++) {
+		// Makes the unix timestamp and adds on the time since the first sample (in milliseconds).
+			Long time_conv = ((Long.valueOf(start_stamp)*1000)+(i*16));
+				Date time = new java.util.Date(time_conv);
+				dates[i] = time;
 
 		}
 		return dates;
 	}
 
-	public void alarmHistory(View v){
+	public void alarmHistory(View v) {
 		// Starts the activity to view the alarm history. Uses an on click listener in the xml file.
-		Intent i = new Intent(getApplicationContext(),alarmHistory.class);
+		Intent i = new Intent(getApplicationContext(), alarmHistory.class);
 		//StartActivity with the intent i
 		startActivity(i);
 
 	}
-	public void settings(View v){
-		/*Starts the activity to view the settings. Uses an on click listener in the xml file.
-		* It will also return with the updated settings values to be applied. */
-		Intent i = new Intent(getApplicationContext(),settings.class);
+
+	public void settings(View v) {
+	/*=======================================================================================
+	Starts the activity to view the settings. Uses an on click listener in the xml file.
+	It will also return with the updated settings values to be applied.
+	=======================================================================================*/
+
+		Intent i = new Intent(getApplicationContext(), settings.class);
 		//Start the activity with the intent i and requestcode 1
-		startActivityForResult(i,1);
+		startActivityForResult(i, 1);
 
 	}
 
-	// Receiving the result from the StartActivityForResult()
+	// Not implemented
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-	/* when the settings activity ends, this function will run and handle the return data from
-	the changes in the settings activity.*/
+	/*=======================================================================================
+	When the settings activity ends, this function will run and handle the return data from
+	the changes in the settings activity.
+	=======================================================================================*/
 		super.onActivityResult(requestCode, resultCode, data);
-		if (requestCode == 1 && resultCode == RESULT_OK){
-			 showeda = getIntent().getExtras().getBoolean("data",false);
+		if (requestCode == 1 && resultCode == RESULT_OK) {
+			showeda = getIntent().getExtras().getBoolean("data", false);
 
 		}
 	}
 
-	public void startstop(View v){
-	/*On click listener for the start stop button. When clicked it starts a new thread which
-	appends BVP or EDA data to the graph, depending on what */
+	public void startstop(View v) {
+	/*=======================================================================================
+	On click listener for the start stop button. When clicked it starts a new thread which
+	appends BVP or EDA data to the graph, depending on what is selected to be viewed in the graph
+	. First time pressed it will start the thread. If pressed more times it will toggle between
+	pausing the appending of new data, or continuing appending data points to the graph
+	=======================================================================================*/
 
-		Button startstop_button = (Button)findViewById(R.id.startStop);
-		if(!start){
+		Button startstop_button = (Button) findViewById(R.id.startStop);
+		if (!start) {
 			start = true;
 			startstop_button.setText("Pause");
 
@@ -339,72 +304,70 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 				@Override
 				public void run() {
-					// we add the entries to the graph
-
-					for (int i = 0; i < bvpData.length - 50; i++) { // TODO: fix length of i
+					// One problem that will occur here is that the length of the EDA is shorter
+					// than the BVP array, and will cause an overflow.
+					for (int i = 0; i < bvpData.length; i++) {
 						runOnUiThread(new Runnable() {
 
 							@Override
 							public void run() {
 
-								if(!pause){
+								if (!pause) {
 									if (showeda) {
 										addEDAEntry();
-									}else{
+									} else {
 										addBVPEntry();
 									}
 								}
-
-
-
 							}
-
 						});
 
 
-						// sleep to slow down the add of entries
+						// sleep function that corresponds to the sample frequency of the signal
+						// data
 						try {
-							if(showeda){
+							if (showeda) {
 								Thread.sleep(250);
-							}else{
-								Thread.sleep(16);
+							} else {
+								Thread.sleep(15);
 							}
-
 						} catch (InterruptedException e) {
 							// manage error ...
 						}
 					}
 					start = false;
-
 				}
 			}).start();
-		}else{
-			if(!pause){
+
+		} else {
+			if (!pause) {
 				pause = true;
 				startstop_button.setText("Resume");
 
-			}else{
+			} else {
 				pause = false;
 				startstop_button.setText("Pause");
 			}
 		}
-
-
 	}
-	// Not implemented
-	public double[] fourierLowPassFilter(double[] data, double lowPass, double frequency){
-		//data: input data, must be spaced equally in time.
-		//lowPass: The cutoff frequency at which
-		//frequency: The frequency of the input data.
 
-		//The apache Fft (Fast Fourier Transform) accepts arrays that are powers of 2.
+	public double[] LowPassFilter(double[] data, double lowPass, double frequency) {
+		/*=======================================================================================
+		source: https://stackoverflow.com/questions/4026648/how-to-implement-low-pass-filter
+		data: input data, must be spaced equally in time.
+		lowPass: The cutoff frequency at which
+		frequency: The frequency of the input data.
+
+		The apache FFT accepts arrays that are powers of 2. and therefore the array must be
+		padded with zeros to get the correct length.
+		=======================================================================================*/
 		int minPowerOf2 = 1;
-		while(minPowerOf2 < data.length)
+		while (minPowerOf2 < data.length)
 			minPowerOf2 = 2 * minPowerOf2;
 
 		//pad with zeros
 		double[] padded = new double[minPowerOf2];
-		for(int i = 0; i < data.length; i++)
+		for (int i = 0; i < data.length; i++)
 			padded[i] = data[i];
 
 
@@ -413,57 +376,66 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 		//build the frequency domain array
 		double[] frequencyDomain = new double[fourierTransform.length];
-		for(int i = 0; i < frequencyDomain.length; i++)
-			frequencyDomain[i] = frequency * i / (double)fourierTransform.length;
+		for (int i = 0; i < frequencyDomain.length; i++)
+			frequencyDomain[i] = frequency * i / (double) fourierTransform.length;
 
 		//build the classifier array, 2s are kept and 0s do not pass the filter
 		double[] keepPoints = new double[frequencyDomain.length];
 		keepPoints[0] = 1;
-		for(int i = 1; i < frequencyDomain.length; i++){
-			if(frequencyDomain[i] < lowPass)
+		for (int i = 1; i < frequencyDomain.length; i++) {
+			if (frequencyDomain[i] < lowPass)
 				keepPoints[i] = 2;
 			else
 				keepPoints[i] = 0;
 		}
 
 		//filter the fft
-		for(int i = 0; i < fourierTransform.length; i++)
-			fourierTransform[i] = fourierTransform[i].multiply((double)keepPoints[i]);
+		for (int i = 0; i < fourierTransform.length; i++)
+			fourierTransform[i] = fourierTransform[i].multiply((double) keepPoints[i]);
 
 		//invert back to time domain
 		Complex[] reverseFourier = transformer.transform(fourierTransform, TransformType.INVERSE);
 
 		//get the real part of the reverse
 		double[] result = new double[data.length];
-		for(int i = 0; i< result.length; i++){
+		for (int i = 0; i < result.length; i++) {
 			result[i] = reverseFourier[i].getReal();
 		}
 
 		return result;
 	}
 
-	public int[] findpeaks(Float[] data, float threshold, int window_size){
+	public int[] findpeaks(double[] data, float threshold, int window_size) {
+		/*=======================================================================================
+		This function takes the filtered data signal and checks for the local minima in small
+		windows set in the input window. It also uses a manual threshold value to look for the
+		local minima in. When it has iterated through the whole signal it returns the peak
+		locations.
+
+		INPUT: Filtered signal, threshold value, windows size
+		OUTPUT: Signal with same length as input signal with the location of the peaks
+		=======================================================================================*/
+
 		int[] peaks = new int[data.length];
 
 		int i = 300;
-		int increment_size = window_size/2;
+		int increment_size = window_size / 2;
 
 
-		while(i < data.length - (data.length/10)){
+		while (i < data.length - (data.length / 10)) {
 			float avg_front = 0;
 			float avg_mid = 0;
 			float avg_back = 0;
 
-			for(int k=0;k<window_size;k++){
+			for (int k = 0; k < window_size; k++) {
 				// Averaging values
-				avg_mid += data[i+k]/window_size;
-				avg_front += data[i+k-5]/window_size;
-				avg_back += data[i+k+5]/window_size;
+				avg_mid += data[i + k] / window_size;
+				avg_front += data[i + k - 5] / window_size;
+				avg_back += data[i + k + 5] / window_size;
 			}
-			if( avg_back > avg_mid && avg_mid < avg_front && avg_mid < threshold){
-				peaks[i] =  50;
-			}
-			else{
+			if (avg_back > avg_mid && avg_mid < avg_front && avg_mid < threshold) {
+				peaks[i] = 50;
+			} else {
 				peaks[i] = 0;
 			}
 			i += increment_size;
@@ -472,110 +444,145 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		return peaks;
 	}
 
-	public double[] getHRV(int[] data_peaks, float fs, int window_iteration){
-		int window_pos = window_iteration*16;
-		int window_size = 16*(int)fs;
+	public double[] getHRV(int[] data_peaks, double fs, int window_iteration) {
+		// This function takes the array of the peak location and calculates the distance between
+		// the peaks in the BVP signal in a window of 15 seconds. The window_iteration is used to
+		// move though the data peaks signal in chunks of 15 seconds. The HRV is then
+		// interpolated before returned
+		//
+		// INPUT: peaks location, sample frequency, what 15 second chunk of the signal is calculated
+		// OUTPUT: interpolated HRV signal
+		int window_pos = window_iteration * 15;
+		int window_size = 15 * (int) fs;
 
 		double[] init_HRV = new double[window_size];
-
 
 		int peak_pos = 0;
 		int hrv_iteration = 0;
 
+		for (int i = 0; i < init_HRV.length; i++) {
 
-		for(int i = 0; i < init_HRV.length; i++){
-
-			if(data_peaks[i] != 0){
+			if (data_peaks[i] != 0) {
 
 				peak_pos = i - peak_pos;
 				init_HRV[hrv_iteration] = (double) peak_pos;
 				peak_pos = i;
-				hrv_iteration +=1;
+				hrv_iteration += 1;
 			}
-
-
 		}
 
-		double[] HRV = new double[hrv_iteration*8];
+		double[] HRV = new double[hrv_iteration * 8];
 
 		int inter_iteration = 0;
-		for(int i=0;i<hrv_iteration-5;i++){
-			double inter_step = (init_HRV[i+1]-init_HRV[i])/8;
-			for (int j=1;j<9;j++){
-				if (inter_step != 0f){
-					HRV[inter_iteration+j] = init_HRV[i]+(j*inter_step);
-				}else{
-					HRV[inter_iteration+j] = init_HRV[i];
+		for (int i = 0; i < hrv_iteration - 5; i++) {
+			double inter_step = (init_HRV[i + 1] - init_HRV[i]) / 8;
+			for (int j = 1; j < 9; j++) {
+				if (inter_step != 0f) {
+					HRV[inter_iteration + j] = init_HRV[i] + (j * inter_step);
+				} else {
+					HRV[inter_iteration + j] = init_HRV[i];
 				}
-
 			}
-			if(i==1140){
-				inter_iteration +=1;
-				inter_iteration -=1;
+			if (i == 1140) {
+				inter_iteration += 1;
+				inter_iteration -= 1;
 			}
-			inter_iteration +=8;
+			inter_iteration += 8;
 		}
 		return HRV;
 	}
 
 
 	// Not implemented
-	public double[] evaluate_hrv(double[] HRV_signal, int window_iteration, int window_size){
+	public double[] hrv_features(double[] HRV_signal, int window_iteration, int window_size) {
+		/*=======================================================================================
+		This function extract the features of the HRV signal described in the project journal.
+		The window_iteration is used to move though the HRV signal in chunks of
+		15 seconds. The window size can be manually set, but since the HRV signal is set to 15
+		seconds the HRV is windowed to 15 seconds that is the max size of the window.
+
+		INPUT: HRV signal,  what 15 second chunk of the signal is calculated, size of the window
+		=======================================================================================*/
+		/*=======================================================================================
+
+		=======================================================================================*/
 
 		int fs = 8;
-		window_size = window_size*8;
+		window_size = window_size * 8;
 		FastFourierTransformer FFT = new FastFourierTransformer(DftNormalization.STANDARD);
 
-		int iteration_multiplier = (window_iteration*16); // -1 to get the signal to a power of 2
+		int iteration_multiplier = (window_iteration * 16); // -1 to get the signal to a power of 2
 		double[] hrv_windowed = new double[128];
 		double[] hrv_features = new double[11];
-		System.arraycopy(HRV_signal,iteration_multiplier,hrv_windowed,0,HRV_signal.length);
+		System.arraycopy(HRV_signal, iteration_multiplier, hrv_windowed, 0, HRV_signal.length);
 
 		double mean = StatUtils.mean(hrv_windowed);
 		double sd_nn = get_std(hrv_windowed);
 		double rms_nn = rootMeanSquare(hrv_windowed);
 		double sdsd = get_std(get_diff(hrv_windowed));
 		double nn50 = get_nn50(get_diff(hrv_windowed));
-		double pnn50 = (nn50/hrv_windowed.length*100);
+		double pnn50 = (nn50 / hrv_windowed.length * 100);
 		// FREQ
 		Complex[] HRV_fft = FFT.transform(hrv_windowed, TransformType.FORWARD);
 
 
 		double HRV_power = HRV_power(HRV_fft);
+		// Not implemented
 		double area_vlf;
 		double area_lf_norm;
 		double area_hf_norm;
 		double lf_hf_ratio;
 
+		hrv_features[0] = mean;
+		hrv_features[1] = sd_nn;
+		hrv_features[2] = rms_nn;
+		hrv_features[3] = sdsd;
+		hrv_features[4] = nn50;
+		hrv_features[5] = pnn50;
+		hrv_features[6] = HRV_power;
+		/* Not calculated yet
+		hrv_features[7] = area_vlf;
+		hrv_features[8] = area_lf_norm;
+		hrv_features[9] = area_hf_norm;
+		hrv_features[10] = lf_hf_ratio;
+		*/
 		return hrv_features;
 	}
 
-	public double HRV_power(Complex[] signal){
+
+	public void SVM(double[] features){
+		//TODO: IMPLEMENT THE SVM MODEL
+	}
+
+	public double HRV_power(Complex[] signal) {
+		// Calculates the power off the fft signal
+		//
+		// INPUT: a fft signal
+		// OUTPUT: power of the input signal
 		double power = 0;
-		for (int i=0;i<signal.length;i++){
+		for (int i = 0; i < signal.length; i++) {
 			power += signal[i].abs();
 		}
-		power = Math.pow(power,2);
+		power = Math.pow(power, 2);
 
-		power = power/signal.length;
+		power = power / signal.length;
 
 		return power;
 
 	}
+
 	// Not implemented
-	public double[] evaluate_eda(double[] eda_signal, int window_iteration){
-		double[] foo = new double[1];
-		int fs = 4;
-		int window_size  = 15;
+	public double[] evaluate_eda(double[] eda_signal, int window_iteration) {
 		//TODO: Features in 15s windows 10
-		//
+		double[] foo = new double[15];
 
 		return foo;
 	}
 
-	//TODO: SVM mocdel that takes in evaluation of HRV and EDA
+
 
 	// features calculation functions:
+	// The mathematically formulas is given in the journal paper
 
 	public static double rootMeanSquare(double[] nums) {
 	/*Calculates the root mean square of the input array.
@@ -587,9 +594,9 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		return Math.sqrt(sum / nums.length);
 	}
 
-	public double get_std(double[] hrv){
+	public double get_std(double[] hrv) {
 		DescriptiveStatistics stats = new DescriptiveStatistics();
-		for(int i=0;i<hrv.length;i++){
+		for (int i = 0; i < hrv.length; i++) {
 			stats.addValue(hrv[i]);
 		}
 		double res = stats.getStandardDeviation();
@@ -597,33 +604,119 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 	}
 
 
-	public double[] get_diff(double[] signal){
-	double[] diff_signal = new double[signal.length];
+	public double[] get_diff(double[] signal) {
+		double[] diff_signal = new double[signal.length];
 
-	for (int i=0;i<diff_signal.length-1;i++){
-		diff_signal[i] = signal[i]-signal[i+1];
-	}
+		for (int i = 0; i < diff_signal.length - 1; i++) {
+			diff_signal[i] = signal[i] - signal[i + 1];
+		}
 		return diff_signal;
 	}
 
-	public double get_nn50(double[] signal){
+	public double get_nn50(double[] signal) {
 		double nn50 = 0;
-		int msInt = 50/1000;
+		int msInt = 50 / 1000;
 		double[] over_msInt = new double[signal.length];
 
-		for(int i=0;i<signal.length;i++){
-			if(over_msInt[i] != 0 && over_msInt[i]>msInt){
+		for (int i = 0; i < signal.length; i++) {
+			if (signal[i] != 0 && signal[i] > msInt) {
 				nn50 += over_msInt[i];
 			}
 		}
 		return nn50;
 	}
 
+	public void initgraph() {
+		// This function is the initialization of the graph and the data series. It enables
+		// scrolling and zooming of the graph, as well as setting the min and max values of the
+		// graph window in both the x and y axis.
 
+		GraphView graph = (GraphView) findViewById(R.id.graph);
+		// Settings for the interaction with the graph
+		// enables horizontal zooming and scrolling
+		graph.getViewport().setScalable(true);
+		// enables vertical zooming and scrolling
+		graph.getViewport().setScalableY(true);
+		// set manual Y bounds
+		graph.getViewport().setYAxisBoundsManual(true);
+		if (showeda) {
+			graph.getViewport().setMinY(-1);
+			graph.getViewport().setMaxY(1);
+		} else {
+			graph.getViewport().setMinY(-150);
+			graph.getViewport().setMaxY(150);
+		}
+		graph.getViewport().setMinX(time[0].getTime());
+		graph.getViewport().setMaxX(time[300].getTime());
+
+
+		// Changes the x-axis of the graph window to display the time in HH:MM:SS
+		graph.getGridLabelRenderer().setLabelFormatter(new DefaultLabelFormatter()
+		{
+			@Override
+			public String formatLabel(double value, boolean isValueX){
+				if(isValueX)
+				{
+					return mmss.format(new Date((long) value));
+				}else {
+				return super.formatLabel(value, isValueX);
+				}
+			}
+		});
+
+		graph.getGridLabelRenderer().setNumHorizontalLabels(4);
+		graph.getGridLabelRenderer().setHumanRounding(false);
+
+
+		// Initialization of the graph series
+		// TODO: Fix the bug where the showing graph has to be declared first
+		series_BVP = new LineGraphSeries<>();
+		graph.addSeries(series_BVP);
+		series_peak = new LineGraphSeries<>();
+		graph.addSeries(series_peak);
+		series_EDA = new LineGraphSeries<>();
+		graph.addSeries(series_EDA);
+
+
+		// styling BVP graph
+		series_BVP.setColor(Color.argb(255, 255, 0, 0));   // Setting the color
+		series_BVP.setDrawDataPoints(false);                                // Disable dots in the graph drawing
+		series_BVP.setThickness(3);                                         // Setting the thickness of the graph series
+		series_BVP.setDrawAsPath(true);                                     // Drawing as a path
+
+		// styling EDA series the same way as the BVP series
+		series_EDA.setColor(Color.argb(255, 0, 255, 0));
+		series_EDA.setDrawDataPoints(false);
+		series_EDA.setThickness(3);
+		// as we use dates as labels, the human rounding to nice readable numbers
+		// is not necessary
+
+		// styling peak series the same way as the BVP series
+		series_peak.setColor(Color.argb(255, 0, 200, 255));
+		series_peak.setDrawDataPoints(false);
+		series_peak.setThickness(3);
+	}
 
 }
-	// EMPATICA E4 stuff //TODO: Discuss wether to keep it in our not since we're not using it
-	/*@Override
+
+// Functions that would be used to use the E4 directly in live mode.
+// Since live mode is not used in the application at this moment it is commented out and
+// moved to under the program to get cleaner code
+
+
+/*
+	public void empatica_start(){
+		// For E4 set up
+		private static final int REQUEST_ENABLE_BT = 1;
+		private static final int REQUEST_PERMISSION_ACCESS_COARSE_LOCATION = 1;
+		private static final long STREAMING_TIME = 100000; // Stops streaming 100 000 seconds after
+		// connection
+		private static final String EMPATICA_API_KEY = "2baa364dceb843299b942b41a276740b";
+		private EmpaDeviceManager deviceManager = null;
+	}
+
+
+	@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		switch (requestCode) {
 			case REQUEST_PERMISSION_ACCESS_COARSE_LOCATION:
@@ -663,7 +756,6 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 
 				break;
 		}
-	}
 
 	private void initEmpaticaDeviceManager() {
 		// Android 6 (API level 23) now require ACCESS_COARSE_LOCATION permission to use BLE
@@ -724,9 +816,9 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 				Toast.makeText(MainActivity.this, "Sorry, you can't connect to this device", Toast.LENGTH_SHORT).show();
 			}
 		}
-	}*/
+	}
 
-	/*@Override
+	@Override
 	public void didRequestEnableBluetooth() {
 		// Request the user to enable Bluetooth
 		Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -780,6 +872,7 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 		}
 	}
 
+
 	@Override
 	public void didReceiveAcceleration(int x, int y, int z, double timestamp) {
 		//updateLabel(accel_xLabel, "" + x);
@@ -822,7 +915,14 @@ public class MainActivity extends AppCompatActivity /*implements EmpaDataDelegat
 			}
 		});
 	}
-
-
+}
 }*/
+
+
+
+
+
+
+
+
 
