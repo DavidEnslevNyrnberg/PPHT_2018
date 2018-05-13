@@ -1,7 +1,12 @@
-% TODO
-% - use libsvm as SVM method
-% - problem if 15s window have 0 or 1 peak in get_HRV
-% - Use real tags instead of "stupid"
+% PPHT 31566 7-week project 2018
+% Author: David Enslev Nyrnberg
+% This script import a given Empatica E4 data set and calculates the
+% following:
+% - Windowing given tags are made
+% - Peak detection of the BVP signal by PPG2PEAK.m
+% - HRV by get_HRV.m
+% - linear time (6) and frequency (5) HRV features
+% - fit the HRV feature to a 2-way 5-fold cross validation SVM model
 clear; clc; close all
 
 doPlot = 0;
@@ -57,9 +62,9 @@ for path = 1:length(testDir)
         TestSubject{pas}.meta.iniTime = BVPraw(1);
         TestSubject{pas}.meta.tags = [BVPraw(1);TAGSraw];
         TestSubject{pas}.meta.tagStupid = [BVPraw(1),BVPraw(1)+5*60,BVPraw(1)+12*60,BVPraw(1)+17*60];
-        if ismember(TestSubject{pas}.ID,[460857])==1 % hard code end data point for sub 17min test
-            TestSubject{pas}.meta.tagStupid(4) = BVPraw(1)+17*60-20;
-        end
+%         if ismember(TestSubject{pas}.ID,[460857])==1 % hard code end data point for sub 17min test
+%             TestSubject{pas}.meta.tagStupid(4) = BVPraw(1)+17*60-20;
+%         end
         
         % Load ACC, BVP and EDA data
         TestSubject{pas}.ACC.fs = ACCraw(2,1);
@@ -97,26 +102,33 @@ if doPlot == 1
     for pas = 1:length(TestSubject)
         figure(100+pas)
         subplot(2,1,1)
-        timeAxEDA = datetime(TestSubject{pas}.EDA.timeEDAax,'ConvertFrom','posixtime','TimeZone','local');
+        timeAxEDA = datetime(TestSubject{pas}.EDA.timeEDAax,...
+                             'ConvertFrom','posixtime','TimeZone','local');
         plot(timeAxEDA,TestSubject{pas}.EDA.data,'r', 'LineWidth',0.75);
         hold on;
-        plot(timeAxEDA(TestSubject{pas}.EDA.tagBoolEDA),TestSubject{pas}.EDA.data(TestSubject{pas}.EDA.tagBoolEDA),'s', 'MarkerSize',4, 'LineWidth',4)
+        plot(timeAxEDA(TestSubject{pas}.EDA.tagBoolEDA),...
+            TestSubject{pas}.EDA.data(TestSubject{pas}.EDA.tagBoolEDA),...
+                                        's','MarkerSize',4, 'LineWidth',4)
         hold off
         legend('EDA signal', 'tags for test transition', 'Location','northwest')
         title(sprintf('Raw EDA signal with tag marks for subject %d',TestSubject{pas}.ID))
         xlabel('Time'); ylabel('EDA')
         subplot(2,1,2)
 %         figure
-        timeAxEDA = datetime(TestSubject{pas}.BVP.timeBVPax,'ConvertFrom','posixtime','TimeZone','local');
+        timeAxEDA = datetime(TestSubject{pas}.BVP.timeBVPax,...
+                            'ConvertFrom','posixtime','TimeZone','local');
         plot(timeAxEDA,TestSubject{pas}.BVP.data,'r')
         hold on
-        plot(timeAxEDA(TestSubject{pas}.BVP.tagBoolBVP),TestSubject{pas}.BVP.data(TestSubject{pas}.BVP.tagBoolBVP),'x','MarkerSize',5,'LineWidth',3)
+        plot(timeAxEDA(TestSubject{pas}.BVP.tagBoolBVP),...
+            TestSubject{pas}.BVP.data(TestSubject{pas}.BVP.tagBoolBVP),...
+                                        'x','MarkerSize',5,'LineWidth',3)
         hold off
         legend('PPG signal', 'tags for test transition')
         title(sprintf('Raw PPG signal with tag marks for subject %d',TestSubject{pas}.ID))
         xlabel('Time'); ylabel('PPG')
         % auto save figures
-        saveas(figure(100+pas),[pwd, fullfile(sprintf('/fig/purePlot_%d.png',TestSubject{pas}.ID))]);
+        saveas(figure(100+pas),...
+            [pwd, fullfile(sprintf('/fig/purePlot_%d.png',TestSubject{pas}.ID))]);
     end
 end
 
@@ -142,7 +154,8 @@ subplot(2,1,2); plot(filter_EDA); title('Filtered')
 
 %% Detection of peaks
 detrendDataFilterEDA = detrend(filter_EDA);
-[valPeakEDA,locPeakEDA] = findpeaks(detrendDataFilterEDA); %locPeakEDA gives all peaks in the signal
+%locPeakEDA gives all peaks in the signal
+[valPeakEDA,locPeakEDA] = findpeaks(detrendDataFilterEDA);
 
 length(locPeakEDA) 
 timeEDA = 1:length(detrendDataFilterEDA);
@@ -158,7 +171,7 @@ plot(timeEDA,detrendDataFilterEDA,'g', timeEDA(locPeakEDA),valPeakEDA,'or')
 % plot(detrendDataFilterEDA); title('Detrend signal')
 
 %% BVP - HR calc and HRV feature extraction
-close all
+% close all
 timeCut = 30*64; % remove 30sec before and after 'windowBVP/EDA'.
 f_resample = 8; % amount of interpolation steps for HRV_resample
 windowSize = 30;
@@ -184,7 +197,8 @@ for pas = 1:length(TestSubject)
     
     if doPlot == 1
         % plot detected peaks of peaks for findpeaks and PPG2PEAK.
-        timeAx = datetime(TestSubject{pas}.BVP.timeBVPax,'ConvertFrom','posixtime','TimeZone','local');
+        timeAx = datetime(TestSubject{pas}.BVP.timeBVPax,...
+                    'ConvertFrom','posixtime','TimeZone','local');
         figure(pas+200)
         subplot(2,1,1)
         plot(timeAx,TestSubject{pas}.BVP.data,'g'); hold on
@@ -193,8 +207,10 @@ for pas = 1:length(TestSubject)
         title(sprintf('LP-filter PPG signal of %d with threshold peak detection',TestSubject{pas}.ID))
         xlabel('Time'); ylabel('PPG')
         ylim([-300,300])
-        xStart = datetime(TestSubject{pas}.meta.iniTime+2*60,'ConvertFrom','posixtime','TimeZone','local');
-        xEnd = datetime(TestSubject{pas}.meta.iniTime+2*60+30,'ConvertFrom','posixtime','TimeZone','local');
+        xStart = datetime(TestSubject{pas}.meta.iniTime+2*60,...
+                            'ConvertFrom','posixtime','TimeZone','local');
+        xEnd = datetime(TestSubject{pas}.meta.iniTime+2*60+30,...
+                            'ConvertFrom','posixtime','TimeZone','local');
         xlim([xStart,xEnd])
         if pas == 4 %Pretty figure selected
             xStart = datetime('06-Apr-2018 13:46:20', 'TimeZone','local');
@@ -208,23 +224,30 @@ for pas = 1:length(TestSubject)
         title(sprintf('LP-filter PPG signal of %d with PPG2PEAK method',TestSubject{pas}.ID))
         xlabel('Time'); ylabel('PPG')
         ylim([-300,300])
-        xStart = datetime(TestSubject{pas}.meta.iniTime+2*60,'ConvertFrom','posixtime','TimeZone','local');
-        xEnd = datetime(TestSubject{pas}.meta.iniTime+2*60+30,'ConvertFrom','posixtime','TimeZone','local');
+        xStart = datetime(TestSubject{pas}.meta.iniTime+2*60,...
+                            'ConvertFrom','posixtime','TimeZone','local');
+        xEnd = datetime(TestSubject{pas}.meta.iniTime+2*60+30,...
+                            'ConvertFrom','posixtime','TimeZone','local');
         xlim([xStart,xEnd])
-        if pas == 4 %Pretty figure selected
+        if pas == 4 % Pretty figure selected
             xStart = datetime('06-Apr-2018 13:46:20', 'TimeZone','local');
             xEnd = datetime('06-Apr-2018 13:46:50', 'TimeZone','local');
             xlim([xStart,xEnd])
-            saveas(figure(200+pas),[pwd, fullfile(sprintf('/fig/BEST_peakPlot_%d.png',TestSubject{pas}.ID))]);
+            saveas(figure(200+pas),...
+                [pwd, fullfile(sprintf('/fig/BEST_peakPlot_%d.png',TestSubject{pas}.ID))]);
         end
         % auto save figures
-        saveas(figure(200+pas),[pwd, fullfile(sprintf('/fig/peakPlot_%d.png',TestSubject{pas}.ID))]);
+        saveas(figure(200+pas),...
+                [pwd, fullfile(sprintf('/fig/peakPlot_%d.png',TestSubject{pas}.ID))]);
     end
     
     % calculating windows with time offsets for - preStroop - Stroop - postStroop
-    windowLoc1 = timeCut+TestSubject{pas}.BVP.tagLocBVP(1):TestSubject{pas}.BVP.tagLocBVP(2)-timeCut;
-    windowLoc2 = timeCut+TestSubject{pas}.BVP.tagLocBVP(2):TestSubject{pas}.BVP.tagLocBVP(3)-timeCut;
-    windowLoc3 = timeCut+TestSubject{pas}.BVP.tagLocBVP(3):TestSubject{pas}.BVP.tagLocBVP(4)-timeCut;
+    windowLoc1 = timeCut+TestSubject{pas}.BVP.tagLocBVP(1):...
+                    TestSubject{pas}.BVP.tagLocBVP(2)-timeCut;
+    windowLoc2 = timeCut+TestSubject{pas}.BVP.tagLocBVP(2):...
+                    TestSubject{pas}.BVP.tagLocBVP(3)-timeCut;
+    windowLoc3 = timeCut+TestSubject{pas}.BVP.tagLocBVP(3):...
+                    TestSubject{pas}.BVP.tagLocBVP(4)-timeCut;
     % 15s segments for preStroop
     windowData1 = filtDataBVP{pas}(windowLoc1);
     windowPeak1 = peakDataBVP{pas}(windowLoc1);
@@ -233,7 +256,8 @@ for pas = 1:length(TestSubject)
     windowLengthEnd1 = [1: TestSubject{pas}.BVP.fs*windowSize: (length(windowData1))]-1;
     windowLengthEnd1(1) = [];
     for i = 1:length(windowLengthStart1)
-        TestSubject{pas}.BVP.segmentWindowPeak1{i} = windowPeak1(windowLengthStart1(i):windowLengthEnd1(i));
+        TestSubject{pas}.BVP.segmentWindowPeak1{i} = ...
+                windowPeak1(windowLengthStart1(i):windowLengthEnd1(i));
     end
     % 15s segments for Stroop
     windowData2 = filtDataBVP{pas}(windowLoc2);
@@ -243,7 +267,8 @@ for pas = 1:length(TestSubject)
     windowLengthEnd2 = [1: TestSubject{pas}.BVP.fs*windowSize: (length(windowData2))]-1;
     windowLengthEnd2(1) = [];
     for i = 1:length(windowLengthStart2)
-        TestSubject{pas}.BVP.segmentWindowPeak2{i} = windowPeak2(windowLengthStart2(i):windowLengthEnd2(i));
+        TestSubject{pas}.BVP.segmentWindowPeak2{i} = ...
+                windowPeak2(windowLengthStart2(i):windowLengthEnd2(i));
     end
     % 15s segments for postStroop
     windowData3 = filtDataBVP{pas}(windowLoc3);
@@ -253,26 +278,38 @@ for pas = 1:length(TestSubject)
     windowLengthEnd3 = [1: TestSubject{pas}.BVP.fs*windowSize: (length(windowData3))]-1;
     windowLengthEnd3(1) = [];
     for i = 1:length(windowLengthStart3)
-        TestSubject{pas}.BVP.segmentWindowPeak3{i} = windowPeak3(windowLengthStart3(i):windowLengthEnd3(i));
+        TestSubject{pas}.BVP.segmentWindowPeak3{i} = ...
+                windowPeak3(windowLengthStart3(i):windowLengthEnd3(i));
     end
     
 %     if doPlot == 1
-%         timeAx = datetime(TestSubject{pas}.BVP.timeBVPax,'ConvertFrom','posixtime','TimeZone','local');
+%         timeAx = datetime(TestSubject{pas}.BVP.timeBVPax,...
+%                 'ConvertFrom','posixtime','TimeZone','local');
 %         figure(pas+300)
 %         plot(timeAx(windowLoc1), windowData1, 'b');
 %         hold on
-%         plot(timeAx(logical(windowPeak1)), windowData1(logical(windowPeak1)), 'ro', 'MarkerSize',4);
+%         plot(timeAx(logical(windowPeak1)), ...
+%                   windowData1(logical(windowPeak1)), 'ro', 'MarkerSize',4);
 %         hold off
 %     end
     % calculate HRV for each 15s window of the three segments
     for i = 1:length(windowLengthStart1)
-        [HRV.pre{pas,i}, qrs_loc_time.pre{pas,i}, HRV_resample.pre{pas,i}, qrs_loc_time_resample.pre{pas,i}]=get_HRV(TestSubject{pas}.BVP.segmentWindowPeak1{i}, f_resample, TestSubject{pas}.BVP.fs, [pas,i]);
+        [HRV.pre{pas,i}, qrs_loc_time.pre{pas,i}, ...
+        HRV_resample.pre{pas,i}, qrs_loc_time_resample.pre{pas,i}]=...
+            get_HRV(TestSubject{pas}.BVP.segmentWindowPeak1{i}, f_resample, ...
+            TestSubject{pas}.BVP.fs, [pas,i]);
     end
     for i = 1:length(windowLengthStart2)
-        [HRV.Stroop{pas,i}, qrs_loc_time.Stroop{pas,i}, HRV_resample.Stroop{pas,i}, qrs_loc_time_resample.Stroop{pas,i}]=get_HRV(TestSubject{pas}.BVP.segmentWindowPeak2{i}, f_resample, TestSubject{pas}.BVP.fs, [pas,i]);
+        [HRV.Stroop{pas,i}, qrs_loc_time.Stroop{pas,i}, ...
+        HRV_resample.Stroop{pas,i}, qrs_loc_time_resample.Stroop{pas,i}]=...
+            get_HRV(TestSubject{pas}.BVP.segmentWindowPeak2{i}, f_resample, ...
+            TestSubject{pas}.BVP.fs, [pas,i]);
     end
     for i = 1:length(windowLengthStart3)
-        [HRV.post{pas,i}, qrs_loc_time.post{pas,i}, HRV_resample.post{pas,i}, qrs_loc_time_resample.post{pas,i}]=get_HRV(TestSubject{pas}.BVP.segmentWindowPeak3{i}, f_resample, TestSubject{pas}.BVP.fs, [pas,i]);
+        [HRV.post{pas,i}, qrs_loc_time.post{pas,i}, ...
+        HRV_resample.post{pas,i}, qrs_loc_time_resample.post{pas,i}]=...
+            get_HRV(TestSubject{pas}.BVP.segmentWindowPeak3{i}, f_resample, ...
+            TestSubject{pas}.BVP.fs, [pas,i]);
     end
 end
 
@@ -298,12 +335,14 @@ for k = 1:numel(fieldnames(HRV)) %segment
             % NN intervals that differ by interval margin [NN50] - 5
             TestSubject{i}.HRV_features(k).NN50(j) = sum(diff(HRV.(segmentName{k}){i,j}) > msInt);
             % Percentage of NN50 intervals in signal [pNN50] - 6 
-            TestSubject{i}.HRV_features(k).pNN50(j) = TestSubject{i}.HRV_features(k).NN50(j)/length(HRV.(segmentName{k}){i,j})*100;
+            TestSubject{i}.HRV_features(k).pNN50(j) = ...
+                TestSubject{i}.HRV_features(k).NN50(j)/length(HRV.(segmentName{k}){i,j})*100;
 
             % Frequency freature for HRV
             % Calculate frequency- and power-spectrum
             HRV_freq{k}{i,j} = fft(HRV_resample.(segmentName{k}){i,j});
-            freq_axis{k}{i,j} = linspace(0,length(HRV_freq{k}{i,j})/TestSubject{i}.BVP.fs/f_resample,length(HRV_freq{k}{i,j}));
+            freq_axis{k}{i,j} = linspace(0,length(HRV_freq{k}{i,j})/...
+                                TestSubject{i}.BVP.fs/f_resample,length(HRV_freq{k}{i,j}));
             HRV_power{k}{i,j} = (abs(HRV_freq{k}{i,j}).^2)./length(freq_axis{k}{i,j});
             % total power
             TestSubject{i}.HRV_features(k).power(j) = sum(HRV_power{k}{i,j});
@@ -312,27 +351,38 @@ for k = 1:numel(fieldnames(HRV)) %segment
             freq_vlf{k}{i,j} = freq_axis{k}{i,j}(find(freq_axis{k}{i,j}<=0.04));
             TestSubject{i}.HRV_features(k).area_vlf(j) = trapz(freq_vlf{k}{i,j},HRV_vlf{k}{i,j});
             % calculate LF for freq = ]0.04 : 0.15 Hz]
-            HRV_LF{k}{i,j} = HRV_power{k}{i,j}(find(freq_axis{k}{i,j}>0.04,1):find(freq_axis{k}{i,j}<=0.15,1,'last'));
-            freq_LF{k}{i,j} = freq_axis{k}{i,j}(find(freq_axis{k}{i,j}>0.04,1):find(freq_axis{k}{i,j}<=0.15,1,'last'));
+            HRV_LF{k}{i,j} = HRV_power{k}{i,j}(find(freq_axis{k}{i,j}>0.04,1):...
+                                find(freq_axis{k}{i,j}<=0.15,1,'last'));
+            freq_LF{k}{i,j} = freq_axis{k}{i,j}(find(freq_axis{k}{i,j}>0.04,1):...
+                                find(freq_axis{k}{i,j}<=0.15,1,'last'));
             area_LF{k}{i,j} = trapz(freq_LF{k}{i,j},HRV_LF{k}{i,j});
-            TestSubject{i}.HRV_features(k).LF_norm(j) = area_LF{k}{i,j}/(TestSubject{i}.HRV_features(k).power(j)-TestSubject{i}.HRV_features(k).area_vlf(j));
+            TestSubject{i}.HRV_features(k).LF_norm(j) = area_LF{k}{i,j}/...
+                (TestSubject{i}.HRV_features(k).power(j)-TestSubject{i}.HRV_features(k).area_vlf(j));
             % calculate HF for freq = ]0.15 : 0.4 Hz]
-            HRV_HF{k}{i,j} = HRV_power{k}{i,j}(find(freq_axis{k}{i,j}>0.15,1):find(freq_axis{k}{i,j}<=0.4,1,'last'));
-            freq_HF{k}{i,j} = freq_axis{k}{i,j}(find(freq_axis{k}{i,j}>0.15,1):find(freq_axis{k}{i,j}<=0.4,1,'last'));
+            HRV_HF{k}{i,j} = HRV_power{k}{i,j}(find(freq_axis{k}{i,j}>0.15,1):...
+                                find(freq_axis{k}{i,j}<=0.4,1,'last'));
+            freq_HF{k}{i,j} = freq_axis{k}{i,j}(find(freq_axis{k}{i,j}>0.15,1):...
+                                find(freq_axis{k}{i,j}<=0.4,1,'last'));
             area_HF{k}{i,j} = trapz(freq_HF{k}{i,j},HRV_HF{k}{i,j});
-            TestSubject{i}.HRV_features(k).HF_norm(j) = area_HF{k}{i,j}/(TestSubject{i}.HRV_features(k).power(j)-TestSubject{i}.HRV_features(k).area_vlf(j));
+            TestSubject{i}.HRV_features(k).HF_norm(j) = area_HF{k}{i,j}/...
+                            (TestSubject{i}.HRV_features(k).power(j)-TestSubject{i}.HRV_features(k).area_vlf(j));
             % calculating LF/HF ratio
-            TestSubject{i}.HRV_features(k).LF_HF_ratio(j) = TestSubject{i}.HRV_features(k).LF_norm(j)/TestSubject{i}.HRV_features(k).HF_norm(j);
+            TestSubject{i}.HRV_features(k).LF_HF_ratio(j) = ...
+                TestSubject{i}.HRV_features(k).LF_norm(j)/TestSubject{i}.HRV_features(k).HF_norm(j);
         end
     end
 end
 
 %% LibSVM lib 2-way classifier - 11 features
-featureLabelNumber = repmat([ones(size(HRV.(segmentName{1}),2),1);-ones(size(HRV.(segmentName{2}),2),1);ones(size(HRV.(segmentName{3}),2),1)],size(TestSubject,2),1);
+featureLabelNumber = repmat([ones(size(HRV.(segmentName{1}),2),1);...
+                            -ones(size(HRV.(segmentName{2}),2),1);...
+                            ones(size(HRV.(segmentName{3}),2),1)],size(TestSubject,2),1);
 featureVec = [];
 for i = 1:size(TestSubject,2)
     featureValue = struct2cell(TestSubject{i}.HRV_features);
-    featureValueTest = [cell2mat(featureValue(:,:,1)),cell2mat(featureValue(:,:,2)),cell2mat(featureValue(:,:,3))]';
+    featureValueTest = [cell2mat(featureValue(:,:,1)),...
+                        cell2mat(featureValue(:,:,2)),...
+                        cell2mat(featureValue(:,:,3))]';
     featureVec = [featureVec;featureValueTest];
 end
 
@@ -340,7 +390,7 @@ end
 % model07cut = floor(22*0.7)*length(featureLabelNumber)/22;
 train_label = featureLabelNumber;
 train_Vec = featureVec;
-modelSVM = svmtrain(train_label, train_Vec, '-t 2 -v 5') % with default option: C_SVC and rbf kernel
+modelSVM = svmtrain(train_label, train_Vec, '-v 5') % -v is option for 5-fold crossVal
 
 %% run SVM model
 train_label = featureLabelNumber(model07cut+1:end);
